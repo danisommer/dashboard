@@ -1,4 +1,4 @@
-package PACKAGE_NAME;
+package com.dashboard;
 
 public class SystemInfo {
 }
