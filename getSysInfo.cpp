@@ -29,7 +29,7 @@ public:
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream memoryInfo;
-            memoryInfo << sys_info.totalram / (1024 * 1024) << " MB\n";
+            memoryInfo << sys_info.totalram / (1024 * 1024);
             info = memoryInfo.str();
         }
         return info.c_str();
@@ -42,7 +42,7 @@ public:
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream memoryInfo;
-            memoryInfo << sys_info.freeram / (1024 * 1024) << " MB\n";
+            memoryInfo << sys_info.freeram / (1024 * 1024);
             info = memoryInfo.str();
         }
         return info.c_str();
@@ -71,7 +71,7 @@ public:
             std::ostringstream loadInfo;
             loadInfo << "1 min: " << sys_info.loads[0] / 65536.0 << ", "
                      << "5 min: " << sys_info.loads[1] / 65536.0 << ", "
-                     << "15 min: " << sys_info.loads[2] / 65536.0 << "\n";
+                     << "15 min: " << sys_info.loads[2] / 65536.0;
             info = loadInfo.str();
         }
         return info.c_str();
@@ -114,7 +114,7 @@ public:
             // Compute CPU usage as percentage
             double cpuUsage = 100.0 * (total - idleTime) / total;
             std::ostringstream usageInfo;
-            usageInfo << "CPU Usage: " << cpuUsage << " %\n";
+            usageInfo << cpuUsage;
             info = usageInfo.str();
         }
         return info.c_str();

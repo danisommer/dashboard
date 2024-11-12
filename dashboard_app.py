@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from system_info import SystemInfo
 
-cycle_time = 0.5  # segundos
+cycle_time = 500  # milliseconds
 
 class DashboardApp:
     def __init__(self, root):
@@ -26,51 +26,50 @@ class DashboardApp:
         self.process_window = None
 
     def setup_widgets(self):
-        # frames para organizar layout
+        # frames for organizing layout
         info_frame = tk.Frame(self.root, bg="lightgray")
         info_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # adiciona rotulos para as informacoes do sistema
+        # Add labels for system information
         for field in self.sys_info.fields.keys():
             frame = tk.Frame(info_frame, bg="white")
             frame.pack(fill="x", pady=5)
             label = tk.Label(frame, text=f"{field}:", font=("Arial", 14), anchor="center", bg="white")
             label.pack(fill="x", padx=10, pady=2)
             self.labels[field] = label
-            self.executor.submit(self.update_field, field)
+            self.root.after(0, self.update_field, field)
 
-        # botao para exibir processos
+        # Button to show processes
         self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
         self.process_button.pack(pady=10)
 
-        # adiciona graficos para monitoramento de CPU e Memoria
+        # Add graphs for monitoring CPU and memory
         self.cpu_memory_frame = tk.Frame(self.root)
         self.cpu_memory_frame.pack(fill="both", expand=True)
 
         self.setup_graphs()
 
     def setup_graphs(self):
-        # cria figura do matplotlib
+        # Create figure for the graphs
         self.fig, (self.cpu_ax, self.mem_ax) = plt.subplots(2, 1, figsize=(5, 3))
         self.fig.tight_layout(pad=2.0)
         
-        # canvas para exibir graficos
+        # Canvas to display the graphs
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.cpu_memory_frame)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
-        # atualiza graficos em threads separadas
-        self.executor.submit(self.update_cpu_graph)
-        self.executor.submit(self.update_memory_graph)
+        # Schedule periodic graph updates
+        self.root.after(cycle_time, self.update_cpu_graph)
+        self.root.after(cycle_time, self.update_memory_graph)
 
     def update_field(self, field):
-        while True:
-            value = self.sys_info.get_info(field)
-            self.labels[field].config(text=f"{field}:\n{value}")
-            time.sleep(cycle_time)
+        value = self.sys_info.get_info(field)
+        self.labels[field].config(text=f"{field}:\n{value}")
+        self.root.after(cycle_time, self.update_field, field)  # Schedule next update
 
     def update_cpu_graph(self):
         while True:
-            self.cpu_usage = self.sys_info.get_cpu_usage()
+            self.cpu_usage = float(self.sys_info.get_cpu_usage())  # Pure numeric value
             self.root.after(0, self.refresh_cpu_graph)  # Update graph in the main thread
             time.sleep(cycle_time)
 
@@ -78,14 +77,14 @@ class DashboardApp:
         self.cpu_ax.clear()
         self.cpu_ax.barh(["CPU"], [self.cpu_usage], color="skyblue")
         self.cpu_ax.set_xlim(0, 100)
-        self.cpu_ax.set_title("CPU Usage (%)")
+        self.cpu_ax.set_title(f"CPU Usage: {self.cpu_usage:.2f}%")  # Add label in Python code
         self.canvas.draw()
 
+
     def update_memory_graph(self):
-        while True:
-            self.mem_usage = self.sys_info.get_memory_usage()
-            self.root.after(0, self.refresh_memory_graph)  # Update graph in the main thread
-            time.sleep(cycle_time)
+        self.mem_usage = self.sys_info.get_memory_usage()
+        self.refresh_memory_graph()
+        self.root.after(cycle_time, self.update_memory_graph)  # Schedule next update
 
     def refresh_memory_graph(self):
         self.mem_ax.clear()

@@ -23,6 +23,11 @@ class SystemInfo:
         # Define the return type for each function
         for func in self.fields.values():
             func.restype = c_char_p
+        
+        # Define CPU and Memory usage functions separately
+        lib.getCpuUsage.restype = c_char_p
+        lib.getTotalMemory.restype = c_char_p
+        lib.getFreeMemory.restype = c_char_p
 
     def get_info(self, field):
         func = self.fields[field]
@@ -54,3 +59,18 @@ class SystemInfo:
         except FileNotFoundError:
             return 'N/A'
         return 'N/A'
+
+    def get_cpu_usage(self):
+        # Call the C++ function and return the decoded result as a float
+        return float(lib.getCpuUsage(self.obj).decode('utf-8'))
+
+    def get_memory_usage(self):
+        # Get total and free memory from the C++ library
+        total_memory = float(lib.getTotalMemory(self.obj).decode('utf-8'))
+        free_memory = float(lib.getFreeMemory(self.obj).decode('utf-8'))
+
+        # Calculate memory usage as the difference between total and free memory
+        used_memory = total_memory - free_memory
+
+        # Return memory usage as a percentage
+        return (used_memory / total_memory) * 100
