@@ -1,40 +1,88 @@
-# dashboard_app.py
 import tkinter as tk
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from system_info import SystemInfo
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from system_info import SystemInfo 
 
-cycle_time = 0.5  # Time in seconds for updates
+cycle_time = 0.5  # Tempo de atualização em segundos
 
 class DashboardApp:
     def __init__(self, root):
         self.root = root
         self.root.title("System Dashboard")
+        self.root.geometry("600x900")
         
         self.sys_info = SystemInfo()
         
         self.labels = {}
         self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields))
         
-        self.setup_labels_and_threads()
-        
-        self.process_button = tk.Button(root, text="Show Processes", command=self.show_processes)
-        self.process_button.pack(pady=10)
+        self.setup_widgets()
         
         self.process_window = None
 
-    def setup_labels_and_threads(self):
+    def setup_widgets(self):
+        # Frames para organizar layout
+        info_frame = tk.Frame(self.root, bg="lightgray")
+        info_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Adiciona rótulos para as informações do sistema
         for field in self.sys_info.fields.keys():
-            label = tk.Label(self.root, text=f"{field}:", font=("Arial", 16))
-            label.pack(pady=10)
+            frame = tk.Frame(info_frame, bg="white")
+            frame.pack(fill="x", pady=5)
+            label = tk.Label(frame, text=f"{field}:", font=("Arial", 14), anchor="center", bg="white")
+            label.pack(fill="x", padx=10, pady=2)
             self.labels[field] = label
             self.executor.submit(self.update_field, field)
+
+        # Botão para exibir processos
+        self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
+        self.process_button.pack(pady=10)
+
+        # Adiciona gráficos para monitoramento de CPU e Memória
+        self.cpu_memory_frame = tk.Frame(self.root)
+        self.cpu_memory_frame.pack(fill="both", expand=True)
+
+        self.setup_graphs()
+
+    def setup_graphs(self):
+        # Cria figura do matplotlib
+        self.fig, (self.cpu_ax, self.mem_ax) = plt.subplots(2, 1, figsize=(5, 3))
+        self.fig.tight_layout(pad=2.0)
+        
+        # Canvas para exibir gráficos
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.cpu_memory_frame)
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        
+        # Atualiza gráficos em threads separadas
+        self.executor.submit(self.update_cpu_graph)
+        self.executor.submit(self.update_memory_graph)
 
     def update_field(self, field):
         while True:
             value = self.sys_info.get_info(field)
             self.labels[field].config(text=f"{field}:\n{value}")
+            time.sleep(cycle_time)
+
+    def update_cpu_graph(self):
+        while True:
+            cpu_usage = self.sys_info.get_cpu_usage()
+            self.cpu_ax.clear()
+            self.cpu_ax.barh(["CPU"], [cpu_usage], color="skyblue")
+            self.cpu_ax.set_xlim(0, 100)
+            self.cpu_ax.set_title("CPU Usage (%)")
+            self.canvas.draw()
+            time.sleep(cycle_time)
+
+    def update_memory_graph(self):
+        while True:
+            mem_usage = self.sys_info.get_memory_usage()
+            self.mem_ax.clear()
+            self.mem_ax.barh(["Memory"], [mem_usage], color="salmon")
+            self.mem_ax.set_xlim(0, 100)
+            self.mem_ax.set_title("Memory Usage (%)")
+            self.canvas.draw()
             time.sleep(cycle_time)
 
     def show_processes(self):
@@ -72,3 +120,4 @@ class DashboardApp:
     def stop(self):
         self.executor.shutdown(wait=False)
         self.root.quit()
+

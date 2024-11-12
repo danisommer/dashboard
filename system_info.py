@@ -1,4 +1,3 @@
-# system_info.py
 import os
 from ctypes import cdll, c_char_p
 
@@ -16,7 +15,9 @@ class SystemInfo:
             "Free Memory": lib.getFreeMemory,
             "Uptime": lib.getUptime,
             "Load Average": lib.getLoadAverage,
-            "Process Count": lib.getProcessCount
+            "Process Count": lib.getProcessCount,
+            "Thread Count": lib.getThreadCount,
+            "CPU Usage": lib.getCpuUsage
         }
 
         # Define the return type for each function

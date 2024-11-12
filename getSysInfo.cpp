@@ -1,12 +1,13 @@
 #include <iostream>
 #include <sstream>
 #include <sys/sysinfo.h>
+#include <fstream>
 #include <string>
 #include <cstring>
 
 class SystemInfo {
 public:
-    // funcao para obter infos gerais do sistema
+    // Function to obtain general system info
     const char* getSystemInfo() {
         static std::string info;
         info.clear();
@@ -21,7 +22,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a mem total
+    // Function to obtain total memory
     const char* getTotalMemory() {
         static std::string info;
         info.clear();
@@ -34,7 +35,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a mem livre
+    // Function to obtain free memory
     const char* getFreeMemory() {
         static std::string info;
         info.clear();
@@ -47,7 +48,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter o tempo de atividade do sistema
+    // Function to obtain system uptime
     const char* getUptime() {
         static std::string info;
         info.clear();
@@ -61,7 +62,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a carga media do sistema
+    // Function to obtain load average
     const char* getLoadAverage() {
         static std::string info;
         info.clear();
@@ -76,7 +77,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter o num de processos em execucao
+    // Function to obtain the number of running processes
     const char* getProcessCount() {
         static std::string info;
         info.clear();
@@ -85,6 +86,59 @@ public:
             std::ostringstream procInfo;
             procInfo << sys_info.procs << " processes\n";
             info = procInfo.str();
+        }
+        return info.c_str();
+    }
+
+    // Function to calculate and return CPU usage as a percentage
+    const char* getCpuUsage() {
+        static std::string info;
+        info.clear();
+        
+        // Read the CPU usage stats from /proc/stat
+        std::ifstream statFile("/proc/stat");
+        std::string line;
+        if (statFile.is_open()) {
+            std::getline(statFile, line);  // Read the first line (CPU stats)
+            statFile.close();
+            
+            // Parse the CPU statistics from the line
+            unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
+            std::istringstream ss(line);
+            ss >> line >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
+            
+            // Calculate CPU usage percentage
+            unsigned long long total = user + nice + system + idle + iowait + irq + softirq + steal;
+            unsigned long long idleTime = idle + iowait;
+            
+            // Compute CPU usage as percentage
+            double cpuUsage = 100.0 * (total - idleTime) / total;
+            std::ostringstream usageInfo;
+            usageInfo << "CPU Usage: " << cpuUsage << " %\n";
+            info = usageInfo.str();
+        }
+        return info.c_str();
+    }
+
+    const char* getThreadCount() {
+        static std::string info;
+        info.clear();
+        std::ifstream statFile("/proc/stat");
+        std::string line;
+        if (statFile.is_open()) {
+            while (std::getline(statFile, line)) {
+                if (line.find("processes") != std::string::npos) {
+                    std::istringstream ss(line);
+                    std::string key;
+                    int value;
+                    ss >> key >> value;
+                    std::ostringstream threadInfo;
+                    threadInfo << value << " threads\n";
+                    info = threadInfo.str();
+                    break;
+                }
+            }
+            statFile.close();
         }
         return info.c_str();
     }
@@ -117,5 +171,13 @@ extern "C" {
 
     const char* getProcessCount(SystemInfo* systemInfo) { 
         return systemInfo->getProcessCount();
+    }
+
+    const char* getCpuUsage(SystemInfo* systemInfo) {
+        return systemInfo->getCpuUsage();
+    }
+
+    const char* getThreadCount(SystemInfo* systemInfo) {
+        return systemInfo->getThreadCount();
     }
 }
