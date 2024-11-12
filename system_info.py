@@ -31,7 +31,15 @@ class SystemInfo:
 
     def get_info(self, field):
         func = self.fields[field]
-        return func(self.obj).decode('utf-8')
+        value = func(self.obj).decode('utf-8')
+
+        if field == "CPU Usage":
+            value += "%"
+        
+        elif field in ["Total Memory", "Free Memory"]:
+            value += " MB"
+
+        return value
 
     def get_processes_info(self):
         processes = []
@@ -51,14 +59,18 @@ class SystemInfo:
         return processes
 
     def get_process_memory(self, pid):
+        process_memory_info = {"Physical memory": "N/A", "Virtual memory": "N/A"}  # Initial default values
         try:
             with open(f'/proc/{pid}/status') as f:
                 for line in f:
                     if line.startswith('VmRSS'):
-                        return line.strip().split()[1] + ' KB'
+                        process_memory_info["Physical memory"] = line.strip().split()[1] + ' KB'
+                    elif line.startswith('VmSize'):
+                        process_memory_info["Virtual memory"] = line.strip().split()[1] + ' KB'
         except FileNotFoundError:
-            return 'N/A'
-        return 'N/A'
+            pass  # Process might have terminated
+        return process_memory_info
+
 
     def get_cpu_usage(self):
         # Call the C++ function and return the decoded result as a float
