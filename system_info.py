@@ -10,9 +10,9 @@ class SystemInfo:
 
         # dicionario de funcoes a serem chamadas
         self.fields = {
+            "Uptime": lib.getUptime,
             "Total Memory": lib.getTotalMemory,
             "Free Memory": lib.getFreeMemory,
-            "Uptime": lib.getUptime,
             "Load Average": lib.getLoadAverage,
             "Process Count": lib.getProcessCount,
             "Thread Count": lib.getThreadCount,
