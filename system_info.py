@@ -41,6 +41,10 @@ class SystemInfo:
         return value
 
     def get_processes_info(self):
+        # getProcessesInfo
+        # processes_info = lib.getProcessesInfo(self.obj)
+        # return processes_info.decode('utf-8')
+
         processes = []
         for pid in os.listdir('/proc'):
             if pid.isdigit():

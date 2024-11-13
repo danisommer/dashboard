@@ -132,7 +132,7 @@ public:
     }
 
     // funcao para obter informacoes detalhadas dos processos
-std::string getProcessesInfo() {
+    std::string getProcessesInfo() {
         std::ostringstream processesInfo;
         processesInfo << "PID\tName\tStatus\tVirtual Memory\tPhysical Memory\n";
 
