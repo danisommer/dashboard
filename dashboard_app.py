@@ -15,9 +15,10 @@ class DashboardApp:
     def __init__(self, root):
         self.root = root
         self.root.title("System Dashboard")
-        self.root.geometry("1600x610")
-        self.root.resizable(True, True)
+        self.root.geometry("1200x530")
+        self.root.resizable(True, False)
 
+        self.root.minsize(600, 500)
         self.sys_info = SystemInfo()
 
         self.labels = {}
@@ -57,6 +58,7 @@ class DashboardApp:
             frame.grid(row=i, column=0, sticky="ew", pady=3)
             frame.grid_columnconfigure(0, weight=1)
             label = tk.Label(frame, text=f"{field}:", font=("Arial", 12), anchor="center", bg="white")
+            label.grid(row=0, column=0, sticky="ew", padx=5)
             label.pack(fill="x", padx=5)
             self.labels[field] = label
             self.root.after(0, self.update_field, field)
@@ -74,15 +76,15 @@ class DashboardApp:
         self.setup_graphs()
 
     def setup_graphs(self):
-        # Criando a figura para os graficos
+        # criando a figura para os graficos
         self.fig, (self.cpu_ax, self.mem_ax) = plt.subplots(2, 1, figsize=(6, 4))
         self.fig.tight_layout(pad=2.0)
 
-        # Canvas para exibir os graficos
+        # canvas para exibir os graficos
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.cpu_memory_frame)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Atualizacoes periodicas dos graficos
+        # atualizacoes periodicas dos graficos
         self.root.after(cycle_time, self.update_cpu_graph)
         self.root.after(cycle_time, self.update_memory_graph)
 
@@ -91,7 +93,7 @@ class DashboardApp:
         self.labels[field].config(text=f"{field}:\n{value}")
         self.root.after(cycle_time, self.update_field, field)
 
-        self.get_num_threads()
+        #self.get_num_threads()
 
     def update_cpu_graph(self):
         self.cpu_usage = self.sys_info.get_cpu_usage()
@@ -125,9 +127,10 @@ class DashboardApp:
 
         self.process_window = tk.Toplevel(self.root)
         self.process_window.title("Process List")
-        self.process_window.geometry("790x500")
+        self.process_window.geometry("785x500")
+        self.process_window.resizable(False, True)
 
-        # Adicionar o evento de fechamento da janela
+        # evento de fechamento da janela
         self.process_window.protocol("WM_DELETE_WINDOW", self.on_process_window_close)
 
         # Canvas e Scrollbar para a lista de processos
@@ -146,24 +149,23 @@ class DashboardApp:
         process_canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Verifica se o executor foi encerrado, se sim, cria um novo executor
+        # verifica se o executor foi encerrado, se sim, cria um novo executor
         if self.executor._shutdown:
             self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields) + processes_thread)
 
-        # Carregar processos iniciais assincronamente
+        # carregar processos iniciais assincronamente
         self.executor.submit(self.load_processes)
 
-        # Configura a atualização automática a cada 3 segundos
-        self.root.after(3000, self.refresh_processes)
+        # configura a atualizacao automatica 
+        self.root.after(3000, self.refresh_processes) # 3 segundos
 
     def on_process_window_close(self):
-        # Interromper a atualização periódica da lista de processos
+        # interromper a atualizacao 
         self.root.after_cancel(self.refresh_processes)
     
-        # Cancelar qualquer tarefa ou thread em andamento
+        # cancelar qualquer tarefa ou thread em andamento
         self.executor.shutdown(wait=False)
     
-        # Fechar a janela de processos
         self.process_window.destroy()
         self.process_window = None
 
@@ -204,7 +206,6 @@ class DashboardApp:
 
         # chama a função para a próxima atualização a cada 3 segundos
         self.root.after(3000, self.refresh_processes)
-
 
     def stop(self):
         self.executor.shutdown(wait=False)
