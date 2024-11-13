@@ -10,7 +10,6 @@ class SystemInfo:
 
         # Dictionary of functions to be called
         self.fields = {
-            "System Info": lib.getSystemInfo,
             "Total Memory": lib.getTotalMemory,
             "Free Memory": lib.getFreeMemory,
             "Uptime": lib.getUptime,

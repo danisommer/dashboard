@@ -7,20 +7,6 @@
 
 class SystemInfo {
 public:
-    // Function to obtain general system info
-    const char* getSystemInfo() {
-        static std::string info;
-        info.clear();
-        FILE* fp = popen("uname -a", "r");
-        if (fp) {
-            char buffer[256];
-            while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-                info += buffer;
-            }
-            pclose(fp);
-        }
-        return info.c_str();
-    }
 
     // Function to obtain total memory
     const char* getTotalMemory() {
@@ -147,10 +133,6 @@ public:
 extern "C" {
     SystemInfo* SystemInfo_new() { 
         return new SystemInfo(); 
-    }
-
-    const char* getSystemInfo(SystemInfo* systemInfo) { 
-        return systemInfo->getSystemInfo();
     }
 
     const char* getTotalMemory(SystemInfo* systemInfo) { 
