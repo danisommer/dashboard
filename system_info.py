@@ -1,14 +1,14 @@
 import os
 from ctypes import cdll, c_char_p
 
-# Load the C++ library
+# carrega a biblioteca c++
 lib = cdll.LoadLibrary('./libGetSysInfo.so')
 
 class SystemInfo:
     def __init__(self):
         self.obj = lib.SystemInfo_new()
 
-        # Dictionary of functions to be called
+        # dicionario de funcoes a serem chamadas
         self.fields = {
             "Total Memory": lib.getTotalMemory,
             "Free Memory": lib.getFreeMemory,
@@ -19,11 +19,11 @@ class SystemInfo:
             "CPU Usage": lib.getCpuUsage
         }
 
-        # Define the return type for each function
+        # define o tipo de retorno para cada funcao
         for func in self.fields.values():
             func.restype = c_char_p
         
-        # Define CPU and Memory usage functions separately
+        # define as funcoes de uso de cpu e memoria separadamente
         lib.getCpuUsage.restype = c_char_p
         lib.getTotalMemory.restype = c_char_p
         lib.getFreeMemory.restype = c_char_p
@@ -58,7 +58,7 @@ class SystemInfo:
         return processes
 
     def get_process_memory(self, pid):
-        process_memory_info = {"Physical memory": "N/A", "Virtual memory": "N/A"}  # Initial default values
+        process_memory_info = {"Physical memory": "N/A", "Virtual memory": "N/A"} 
         try:
             with open(f'/proc/{pid}/status') as f:
                 for line in f:
@@ -67,21 +67,21 @@ class SystemInfo:
                     elif line.startswith('VmSize'):
                         process_memory_info["Virtual memory"] = line.strip().split()[1] + ' KB'
         except FileNotFoundError:
-            pass  # Process might have terminated
+            pass  # o processo pode ter terminado
         return process_memory_info
 
 
     def get_cpu_usage(self):
-        # Call the C++ function and return the decoded result as a float
+        # chama a funcao em c++ e retorna o resultado decodificado como um float
         return float(lib.getCpuUsage(self.obj).decode('utf-8'))
 
     def get_memory_usage(self):
-        # Get total and free memory from the C++ library
+        # obtem memoria total e livre da biblioteca c++
         total_memory = float(lib.getTotalMemory(self.obj).decode('utf-8'))
         free_memory = float(lib.getFreeMemory(self.obj).decode('utf-8'))
 
-        # Calculate memory usage as the difference between total and free memory
+        # calcula o uso de memoria como a diferença entre memoria total e livre
         used_memory = total_memory - free_memory
 
-        # Return memory usage as a percentage
+        # retorna o uso de memoria como uma porcentagem
         return (used_memory / total_memory) * 100

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from system_info import SystemInfo
 
-cycle_time = 500  # milliseconds
+cycle_time = 500  # milissegundos
 processes_thread = 1
 
 class DashboardApp:
@@ -33,13 +33,13 @@ class DashboardApp:
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
 
-        # infos do sistema
+        # informações do sistema
         info_frame = tk.Frame(self.root, bg="lightgray")
         info_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         info_frame.grid_rowconfigure(0, weight=1)
         info_frame.grid_columnconfigure(0, weight=1)
 
-        # labels para infos do sistema
+        # labels para informações do sistema
         for i, field in enumerate(self.sys_info.fields.keys()):
             frame = tk.Frame(info_frame, bg="white", padx=10, pady=5)
             frame.grid(row=i, column=0, sticky="ew", pady=3)
@@ -49,11 +49,11 @@ class DashboardApp:
             self.labels[field] = label
             self.root.after(0, self.update_field, field)
 
-        # botao da pagina de processos
+        # botão da página de processos
         self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
         self.process_button.grid(row=1, column=0, pady=10, padx=10, sticky="ew")
 
-        # gráficos de cpu e memoria
+        # gráficos de CPU e memória
         self.cpu_memory_frame = tk.Frame(self.root)
         self.cpu_memory_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
         self.cpu_memory_frame.grid_rowconfigure(0, weight=1)
@@ -129,29 +129,31 @@ class DashboardApp:
         process_canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Botão de Refresh
-        refresh_button = tk.Button(self.process_window, text="Refresh", command=lambda: self.executor.submit(self.refresh_processes))
-        refresh_button.pack(pady=5)
-
         # Carregar processos iniciais assincronamente
         self.executor.submit(self.load_processes)
 
+        # Configura a atualização automática a cada 3 segundos
+        self.root.after(3000, self.refresh_processes)
 
     def load_processes(self):
         self.process_labels = []
         
-        # Initial process info loading, creating a label for each process.
+        # Carregamento inicial das informações de processos, criando um label para cada processo.
         processes = self.sys_info.get_processes_info()
         for process in processes:
-            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
+            text = f"PID: {process['pid']} | Nome: {process['name']} | Status: {process['status']} | Memória: {process['memory']}"
             label = tk.Label(self.process_frame, text=text, font=("Arial", 10))
             label.pack(pady=3)
             self.process_labels.append(label)
 
     def refresh_processes(self):
+        # Verifica se a janela de processos ainda está aberta
+        if self.process_window is None or not self.process_window.winfo_exists():
+            return
+
         processes = self.sys_info.get_processes_info()
 
-        # Adjust the number of labels based on the current process list
+        # Ajusta o número de labels com base na lista atual de processos
         if len(processes) > len(self.process_labels):
             for _ in range(len(processes) - len(self.process_labels)):
                 label = tk.Label(self.process_frame, font=("Arial", 10))
@@ -161,12 +163,14 @@ class DashboardApp:
             for i in range(len(self.process_labels) - len(processes)):
                 self.process_labels[i].pack_forget()
 
-        # Update each label's text and re-pack it
+        # Atualiza o texto de cada label e reempacota
         for i, process in enumerate(processes):
-            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
+            text = f"PID: {process['pid']} | Nome: {process['name']} | Status: {process['status']} | Memória: {process['memory']}"
             self.process_labels[i].config(text=text)
             self.process_labels[i].pack()
 
+        # Rechama a função para próxima atualização a cada 3 segundos
+        self.root.after(3000, self.refresh_processes)
 
 
     def stop(self):

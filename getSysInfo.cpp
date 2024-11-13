@@ -4,11 +4,13 @@
 #include <fstream>
 #include <string>
 #include <cstring>
+#include <dirent.h>
+#include <unistd.h>
 
 class SystemInfo {
 public:
 
-    // Function to obtain total memory
+    // funcao para obter a memoria total
     const char* getTotalMemory() {
         static std::string info;
         info.clear();
@@ -21,7 +23,7 @@ public:
         return info.c_str();
     }
 
-    // Function to obtain free memory
+    // funcao para obter a memoria livre
     const char* getFreeMemory() {
         static std::string info;
         info.clear();
@@ -34,21 +36,21 @@ public:
         return info.c_str();
     }
 
-    // Function to obtain system uptime
+    // funcao para obter o tempo de atividade do sistema
     const char* getUptime() {
         static std::string info;
         info.clear();
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream uptimeInfo;
-            uptimeInfo << sys_info.uptime / 3600 << " hours, "
-                       << (sys_info.uptime % 3600) / 60 << " minutes\n";
+            uptimeInfo << sys_info.uptime / 3600 << " horas, "
+                       << (sys_info.uptime % 3600) / 60 << " minutos\n";
             info = uptimeInfo.str();
         }
         return info.c_str();
     }
 
-    // Function to obtain load average
+    // funcao para obter a media de carga
     const char* getLoadAverage() {
         static std::string info;
         info.clear();
@@ -63,41 +65,41 @@ public:
         return info.c_str();
     }
 
-    // Function to obtain the number of running processes
+    // funcao para obter o numero de processos em execucao
     const char* getProcessCount() {
         static std::string info;
         info.clear();
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream procInfo;
-            procInfo << sys_info.procs << " processes\n";
+            procInfo << sys_info.procs << " processos\n";
             info = procInfo.str();
         }
         return info.c_str();
     }
 
-    // Function to calculate and return CPU usage as a percentage
+    // funcao para calcular e retornar o uso da cpu em percentual
     const char* getCpuUsage() {
         static std::string info;
         info.clear();
         
-        // Read the CPU usage stats from /proc/stat
+        // le as estatísticas de uso da cpu em /proc/stat
         std::ifstream statFile("/proc/stat");
         std::string line;
         if (statFile.is_open()) {
-            std::getline(statFile, line);  // Read the first line (CPU stats)
+            std::getline(statFile, line);  // le a primeira linha (estatísticas da cpu)
             statFile.close();
             
-            // Parse the CPU statistics from the line
+            // analisa as estatisticas da cpu a partir da linha
             unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
             std::istringstream ss(line);
             ss >> line >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
             
-            // Calculate CPU usage percentage
+            // calcula a porcentagem de uso da cpu
             unsigned long long total = user + nice + system + idle + iowait + irq + softirq + steal;
             unsigned long long idleTime = idle + iowait;
             
-            // Compute CPU usage as percentage
+            // computa o uso da cpu em percentual
             double cpuUsage = 100.0 * (total - idleTime) / total;
             std::ostringstream usageInfo;
             usageInfo << cpuUsage;
@@ -128,6 +130,60 @@ public:
         }
         return info.c_str();
     }
+
+    // funcao para obter informacoes detalhadas dos processos
+std::string getProcessesInfo() {
+        std::ostringstream processesInfo;
+        processesInfo << "PID\tNome\tStatus\tMemória Virtual\tMemória Física\n";
+
+        DIR* dir = opendir("/proc");
+        if (!dir) {
+            perror("Não foi possível abrir /proc");
+            return "";
+        }
+
+        struct dirent* entry;
+        while ((entry = readdir(dir)) != NULL) {
+            if (entry->d_type == DT_DIR) {
+                int pid = atoi(entry->d_name);
+                if (pid > 0) {
+                    std::string processDir = std::string("/proc/") + entry->d_name;
+                    std::string statusPath = processDir + "/status";
+                    
+                    std::ifstream statusFile(statusPath);
+                    if (statusFile.is_open()) {
+                        std::string line;
+                        std::string name;
+                        std::string state;
+                        unsigned long vsize = 0;   // Memória virtual
+                        long rss = 0;              // Memória física (Resident Set Size)
+
+                        while (std::getline(statusFile, line)) {
+                            if (line.find("Name:") == 0) {
+                                name = line.substr(line.find(":") + 2);
+                            }
+                            if (line.find("State:") == 0) {
+                                state = line.substr(line.find(":") + 2);
+                            }
+                            if (line.find("VmSize:") == 0) {
+                                vsize = std::stoul(line.substr(line.find(":") + 2)) / 1024; // Em KB
+                            }
+                            if (line.find("VmRSS:") == 0) {
+                                rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // Em KB
+                                break; // Após encontrar VmRSS, não precisamos de mais dados
+                            }
+                        }
+                        processesInfo << pid << "\t" << name << "\t" << state << "\t" 
+                                      << vsize << " KB\t" << rss << " KB\n";
+                        statusFile.close();
+                    }
+                }
+            }
+        }
+        closedir(dir);
+        return processesInfo.str();
+    }
+
 };
 
 extern "C" {
@@ -161,5 +217,10 @@ extern "C" {
 
     const char* getThreadCount(SystemInfo* systemInfo) {
         return systemInfo->getThreadCount();
+    }
+
+    const char* getProcessesInfo(SystemInfo* systemInfo) { 
+        static std::string info = systemInfo->getProcessesInfo();
+        return info.c_str();
     }
 }
