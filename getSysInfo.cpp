@@ -43,8 +43,8 @@ public:
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream uptimeInfo;
-            uptimeInfo << sys_info.uptime / 3600 << " horas, "
-                       << (sys_info.uptime % 3600) / 60 << " minutos\n";
+            uptimeInfo << sys_info.uptime / 3600 << " hours, "
+                       << (sys_info.uptime % 3600) / 60 << " minutes\n";
             info = uptimeInfo.str();
         }
         return info.c_str();
@@ -72,7 +72,7 @@ public:
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream procInfo;
-            procInfo << sys_info.procs << " processos\n";
+            procInfo << sys_info.procs << " processes\n";
             info = procInfo.str();
         }
         return info.c_str();
@@ -134,7 +134,7 @@ public:
     // funcao para obter informacoes detalhadas dos processos
 std::string getProcessesInfo() {
         std::ostringstream processesInfo;
-        processesInfo << "PID\tNome\tStatus\tMemória Virtual\tMemória Física\n";
+        processesInfo << "PID\tName\tStatus\tVirtual Memory\tPhysical Memory\n";
 
         DIR* dir = opendir("/proc");
         if (!dir) {

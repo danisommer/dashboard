@@ -4,6 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from system_info import SystemInfo
+import psutil
+
 
 cycle_time = 500  # milissegundos
 processes_thread = 1
@@ -26,6 +28,11 @@ class DashboardApp:
         self.setup_widgets()
 
         self.process_window = None
+        
+    def get_num_threads(self):
+        current_process = psutil.Process()
+        num_threads = current_process.num_threads()
+        print(f"Number of threads: {num_threads}")
 
     def setup_widgets(self):
         # grid principal
@@ -78,6 +85,8 @@ class DashboardApp:
         value = self.sys_info.get_info(field)
         self.labels[field].config(text=f"{field}:\n{value}")
         self.root.after(cycle_time, self.update_field, field)
+
+        #self.get_num_threads()
 
     def update_cpu_graph(self):
         self.cpu_usage = self.sys_info.get_cpu_usage()
@@ -141,7 +150,7 @@ class DashboardApp:
         # Carregamento inicial das informações de processos, criando um label para cada processo.
         processes = self.sys_info.get_processes_info()
         for process in processes:
-            text = f"PID: {process['pid']} | Nome: {process['name']} | Status: {process['status']} | Memória: {process['memory']}"
+            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
             label = tk.Label(self.process_frame, text=text, font=("Arial", 10))
             label.pack(pady=3)
             self.process_labels.append(label)
@@ -165,7 +174,7 @@ class DashboardApp:
 
         # Atualiza o texto de cada label e reempacota
         for i, process in enumerate(processes):
-            text = f"PID: {process['pid']} | Nome: {process['name']} | Status: {process['status']} | Memória: {process['memory']}"
+            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
             self.process_labels[i].config(text=text)
             self.process_labels[i].pack()
 
