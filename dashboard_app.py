@@ -58,7 +58,6 @@ class DashboardApp:
             frame.grid(row=i, column=0, sticky="ew", pady=3)
             frame.grid_columnconfigure(0, weight=1)
             label = tk.Label(frame, text=f"{field}:", font=("Arial", 12), anchor="center", bg="white")
-            label.grid(row=0, column=0, sticky="ew", padx=5)
             label.pack(fill="x", padx=5)
             self.labels[field] = label
             self.root.after(0, self.update_field, field)
@@ -130,7 +129,6 @@ class DashboardApp:
         self.process_window.geometry("785x500")
         self.process_window.resizable(False, True)
 
-        # evento de fechamento da janela
         self.process_window.protocol("WM_DELETE_WINDOW", self.on_process_window_close)
 
         # Canvas e Scrollbar para a lista de processos
@@ -149,15 +147,17 @@ class DashboardApp:
         process_canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # verifica se o executor foi encerrado, se sim, cria um novo executor
+        # vincular eventos de rolagem do mouse e das setas do teclado
+        process_canvas.bind_all("<MouseWheel>", lambda e: process_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+        process_canvas.bind_all("<Up>", lambda e: process_canvas.yview_scroll(-1, "units"))
+        process_canvas.bind_all("<Down>", lambda e: process_canvas.yview_scroll(1, "units"))
+
+        # verifica se o executor foi encerrado; se sim, cria um novo executor
         if self.executor._shutdown:
             self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields) + processes_thread)
 
-        # carregar processos iniciais assincronamente
         self.executor.submit(self.load_processes)
-
-        # configura a atualizacao automatica 
-        self.root.after(3000, self.refresh_processes) # 3 segundos
+        self.root.after(3000, self.refresh_processes)  # 3 segundos
 
     def on_process_window_close(self):
         # interromper a atualizacao 
