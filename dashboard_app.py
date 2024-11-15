@@ -1,5 +1,5 @@
 import tkinter as tk
-import time
+from tkinter import ttk
 from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -8,7 +8,7 @@ import psutil
 
 
 cycle_time = 500  # milissegundos
-processes_thread = 1
+processes_thread = 10
 last_thread_num = 0
 
 class DashboardApp:
@@ -92,7 +92,7 @@ class DashboardApp:
         self.labels[field].config(text=f"{field}:\n{value}")
         self.root.after(cycle_time, self.update_field, field)
 
-        #self.get_num_threads()
+        self.get_num_threads()
 
     def update_cpu_graph(self):
         self.cpu_usage = self.sys_info.get_cpu_usage()
@@ -120,61 +120,12 @@ class DashboardApp:
         self.mem_ax.set_yticklabels([])
         self.canvas.draw()
 
-    def show_processes(self):
-        if self.process_window is not None:
-            self.process_window.destroy()
-
-        self.process_window = tk.Toplevel(self.root)
-        self.process_window.title("Process List")
-        self.process_window.geometry("785x500")
-        self.process_window.resizable(False, True)
-
-        self.process_window.protocol("WM_DELETE_WINDOW", self.on_process_window_close)
-
-        # Canvas e Scrollbar para a lista de processos
-        process_canvas = tk.Canvas(self.process_window)
-        scrollbar = tk.Scrollbar(self.process_window, orient="vertical", command=process_canvas.yview)
-        self.process_frame = tk.Frame(process_canvas)
-
-        self.process_frame.bind(
-            "<Configure>",
-            lambda e: process_canvas.configure(scrollregion=process_canvas.bbox("all"))
-        )
-
-        process_canvas.create_window((0, 0), window=self.process_frame, anchor="nw")
-        process_canvas.configure(yscrollcommand=scrollbar.set)
-
-        process_canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # vincular eventos de rolagem do mouse e das setas do teclado
-        process_canvas.bind_all("<MouseWheel>", lambda e: process_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
-        process_canvas.bind_all("<Up>", lambda e: process_canvas.yview_scroll(-1, "units"))
-        process_canvas.bind_all("<Down>", lambda e: process_canvas.yview_scroll(1, "units"))
-
-        # verifica se o executor foi encerrado; se sim, cria um novo executor
-        if self.executor._shutdown:
-            self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields) + processes_thread)
-
-        self.executor.submit(self.load_processes)
-        self.root.after(3000, self.refresh_processes)  # 3 segundos
-
-    def on_process_window_close(self):
-        # interromper a atualizacao 
-        self.root.after_cancel(self.refresh_processes)
-    
-        # cancelar qualquer tarefa ou thread em andamento
-        self.executor.shutdown(wait=False)
-    
-        self.process_window.destroy()
-        self.process_window = None
-
-
     def load_processes(self):
         self.process_labels = []
         
         # carregamento inicial das informacoes de processos, criando um label para cada processo
-        processes = self.sys_info.get_processes_info()
+        processes_info = self.sys_info.get_processes_info()
+        processes = self.parse_processes_info(processes_info)
         for process in processes:
             text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
             label = tk.Label(self.process_frame, text=text, font=("Arial", 10))
@@ -186,7 +137,8 @@ class DashboardApp:
         if self.process_window is None or not self.process_window.winfo_exists():
             return
 
-        processes = self.sys_info.get_processes_info()
+        processes_info = self.sys_info.get_processes_info()
+        processes = self.parse_processes_info(processes_info)
 
         # ajusta o número de labels com base na lista atual de processos
         if len(processes) > len(self.process_labels):
@@ -194,18 +146,56 @@ class DashboardApp:
                 label = tk.Label(self.process_frame, font=("Arial", 10))
                 label.pack(pady=3)
                 self.process_labels.append(label)
-        elif len(processes) < len(self.process_labels):
-            for i in range(len(self.process_labels) - len(processes)):
-                self.process_labels[i].pack_forget()
 
-        # atualiza o texto de cada label e reempacota
+        # atualiza o texto de cada label com as novas informacoes de processos
         for i, process in enumerate(processes):
             text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
             self.process_labels[i].config(text=text)
-            self.process_labels[i].pack()
 
-        # chama a função para a próxima atualização a cada 3 segundos
-        self.root.after(3000, self.refresh_processes)
+        # agenda a próxima atualização
+        self.refresh_processes_id = self.root.after(5000, self.refresh_processes)
+
+    def show_processes(self):
+        if self.process_window is not None and self.process_window.winfo_exists():
+            return
+
+        self.process_window = tk.Toplevel(self.root)
+        self.process_window.title("Process Information")
+
+        # canvas e scrollbar
+        self.process_canvas = tk.Canvas(self.process_window)
+        self.scrollbar = ttk.Scrollbar(self.process_window, orient="vertical", command=self.process_canvas.yview)
+        self.scrollbar.pack(side="right", fill="y")
+        self.process_canvas.pack(side="left", fill="both", expand=True)
+        self.process_canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.process_frame = ttk.Frame(self.process_canvas)
+        self.process_canvas.create_window((0, 0), window=self.process_frame, anchor="nw")
+
+        self.process_frame.bind("<Configure>", lambda e: self.process_canvas.configure(scrollregion=self.process_canvas.bbox("all")))
+
+        self.load_processes()
+        self.refresh_processes()
+
+    def parse_processes_info(self, processes_info):
+        processes = []
+        lines = processes_info.split('\n')[1:]  # ignora a primeira linha
+        for line in lines:
+            if line.strip():
+                parts = line.split('\t')
+                process = {
+                    'pid': parts[0],
+                    'name': parts[1],
+                    'status': parts[2],
+                    'memory': f"Virtual: {parts[3]}, Physical: {parts[4]}"
+                }
+                processes.append(process)
+        return processes
+
+    def stop_refreshing_processes(self):
+        if self.refresh_processes_id is not None:
+            self.root.after_cancel(self.refresh_processes_id)
+            self.refresh_processes_id = None
 
     def stop(self):
         self.executor.shutdown(wait=False)

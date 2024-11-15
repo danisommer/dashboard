@@ -19,14 +19,11 @@ class SystemInfo:
             "CPU Usage": lib.getCpuUsage
         }
 
+        lib.getProcessesInfo.restype = c_char_p
+
         # define o tipo de retorno para cada funcao
         for func in self.fields.values():
             func.restype = c_char_p
-        
-        # define as funcoes de uso de cpu e memoria separadamente
-        lib.getCpuUsage.restype = c_char_p
-        lib.getTotalMemory.restype = c_char_p
-        lib.getFreeMemory.restype = c_char_p
 
     def get_info(self, field):
         func = self.fields[field]
@@ -41,39 +38,8 @@ class SystemInfo:
         return value
 
     def get_processes_info(self):
-        # getProcessesInfo
-        # processes_info = lib.getProcessesInfo(self.obj)
-        # return processes_info.decode('utf-8')
-
-        processes = []
-        for pid in os.listdir('/proc'):
-            if pid.isdigit():
-                try:
-                    process_info = {}
-                    with open(f'/proc/{pid}/stat') as f:
-                        data = f.read().split()
-                        process_info['pid'] = pid
-                        process_info['name'] = data[1]
-                        process_info['status'] = data[2]
-                        process_info['memory'] = self.get_process_memory(pid)
-                        processes.append(process_info)
-                except FileNotFoundError:
-                    continue
-        return processes
-
-    def get_process_memory(self, pid):
-        process_memory_info = {"Physical memory": "N/A", "Virtual memory": "N/A"} 
-        try:
-            with open(f'/proc/{pid}/status') as f:
-                for line in f:
-                    if line.startswith('VmRSS'):
-                        process_memory_info["Physical memory"] = line.strip().split()[1] + ' KB'
-                    elif line.startswith('VmSize'):
-                        process_memory_info["Virtual memory"] = line.strip().split()[1] + ' KB'
-        except FileNotFoundError:
-            pass  # o processo pode ter terminado
-        return process_memory_info
-
+        processes_info = lib.getProcessesInfo(self.obj)
+        return processes_info.decode('utf-8')
 
     def get_cpu_usage(self):
         # chama a funcao em c++ e retorna o resultado decodificado como um float
