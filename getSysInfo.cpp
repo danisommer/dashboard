@@ -132,7 +132,9 @@ public:
     }
 
     // funcao para obter informacoes detalhadas dos processos
-    std::string getProcessesInfo() {
+    const char* getProcessesInfo() {
+        static std::string info;
+
         std::ostringstream processesInfo;
         processesInfo << "PID\tName\tStatus\tVirtual Memory\tPhysical Memory\n";
 
@@ -155,8 +157,8 @@ public:
                         std::string line;
                         std::string name;
                         std::string state;
-                        unsigned long vsize = 0;   // Memória virtual
-                        long rss = 0;              // Memória física (Resident Set Size)
+                        unsigned long vsize = 0;   // memoria virtual
+                        long rss = 0;              // memoria fisica
 
                         while (std::getline(statusFile, line)) {
                             if (line.find("Name:") == 0) {
@@ -170,7 +172,7 @@ public:
                             }
                             if (line.find("VmRSS:") == 0) {
                                 rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // Em KB
-                                break; // Após encontrar VmRSS, não precisamos de mais dados
+                                break;
                             }
                         }
                         processesInfo << pid << "\t" << name << "\t" << state << "\t" 
@@ -181,7 +183,10 @@ public:
             }
         }
         closedir(dir);
-        return processesInfo.str();
+        
+        info = processesInfo.str();
+        return info.c_str();
+
     }
 
 };
@@ -220,7 +225,6 @@ extern "C" {
     }
 
     const char* getProcessesInfo(SystemInfo* systemInfo) { 
-        static std::string info = systemInfo->getProcessesInfo();
-        return info.c_str();
+        return systemInfo->getProcessesInfo();
     }
 }
