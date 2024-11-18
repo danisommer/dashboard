@@ -26,8 +26,6 @@ class SystemInfo:
             "CPU Info": lib.getCpuInfo            
         }
 
-        lib.getProcessesInfo.restype = c_char_p
-
         # define o tipo de retorno para cada funcao
         for func in self.fields.values():
             func.restype = c_char_p
@@ -47,10 +45,6 @@ class SystemInfo:
 
         return value
 
-    def get_processes_info(self):
-        processes_info = lib.getProcessesInfo(self.obj)
-        return processes_info.decode('utf-8')
-
     def get_cpu_usage(self):
         # chama a funcao em c++ e retorna o resultado decodificado como um float
         return float(lib.getCpuUsage(self.obj).decode('utf-8'))
@@ -66,11 +60,23 @@ class SystemInfo:
         # retorna o uso de memoria como uma porcentagem
         return (used_memory / total_memory) * 100
     
+    def get_swap_usage(self):
+        return float(lib.getSwapUsage(self.obj).decode('utf-8'))
+
     def get_network_receive_rate(self):
         return float(lib.getNetworkReceiveRate(self.obj).decode('utf-8'))
 
     def get_network_transmit_rate(self):
         return float(lib.getNetworkTransmitRate(self.obj).decode('utf-8'))
     
-    def get_swap_usage(self):
-        return float(lib.getSwapUsage(self.obj).decode('utf-8'))
+    def get_processes_info(self):
+        lib.getProcessesInfo.restype = c_char_p
+        return lib.getProcessesInfo(self.obj).decode('utf-8')
+    
+    def get_used_disk(self):
+        lib.getUsedDisk.restype = c_char_p
+        return float(lib.getUsedDisk(self.obj).decode('utf-8'))
+    
+    def get_free_disk(self):
+        lib.getFreeDisk.restype = c_char_p
+        return float(lib.getFreeDisk(self.obj).decode('utf-8'))

@@ -136,7 +136,7 @@ public:
         return info.c_str();
     }
 
-    const char* getDiskUsage() {
+    const char* getUsedDisk() {
         static std::string info;
         info.clear();
         struct statvfs stat;
@@ -145,7 +145,21 @@ public:
             unsigned long free = stat.f_bfree * stat.f_frsize / (1024 * 1024);
             unsigned long used = total - free;
             std::ostringstream diskInfo;
-            diskInfo << "Total: " << total << " MB, Used: " << used << " MB, Free: " << free << " MB";
+            diskInfo << used;
+            info = diskInfo.str();
+        }
+        return info.c_str();
+    }
+
+    const char* getFreeDisk() {
+        static std::string info;
+        info.clear();
+        struct statvfs stat;
+        if (statvfs("/", &stat) == 0) {
+            unsigned long total = stat.f_blocks * stat.f_frsize / (1024 * 1024);
+            unsigned long free = stat.f_bfree * stat.f_frsize / (1024 * 1024);
+            std::ostringstream diskInfo;
+            diskInfo << free;
             info = diskInfo.str();
         }
         return info.c_str();
@@ -422,8 +436,12 @@ extern "C" {
         return systemInfo->getThreadCount();
     }
 
-    const char* getDiskUsage(SystemInfo* systemInfo) {
-        return systemInfo->getDiskUsage();
+    const char* getUsedDisk(SystemInfo* systemInfo) {
+        return systemInfo->getUsedDisk();
+    }
+
+    const char* getFreeDisk(SystemInfo* systemInfo) {
+        return systemInfo->getFreeDisk();
     }
 
     const char* getCpuTemperature(SystemInfo* systemInfo) {
