@@ -180,7 +180,6 @@ public:
             std::string line;
             unsigned long long totalReceived = 0;
 
-            // Skip the first two lines
             std::getline(netFile, line);
             std::getline(netFile, line);
 
@@ -193,7 +192,6 @@ public:
             }
             netFile.close();
 
-            // Get current time
             auto currentTime = std::chrono::steady_clock::now();
             std::chrono::duration<double> elapsedSeconds = currentTime - prevTime;
 
@@ -205,7 +203,6 @@ public:
                 info = netInfo.str();
             }
 
-            // Update previous values
             prevTotalReceived = totalReceived;
             prevTime = currentTime;
         }
@@ -239,7 +236,6 @@ public:
             }
             netFile.close();
 
-            // Get current time
             auto currentTime = std::chrono::steady_clock::now();
             std::chrono::duration<double> elapsedSeconds = currentTime - prevTime;
 

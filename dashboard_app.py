@@ -135,7 +135,7 @@ class DashboardApp:
         self.cpu_ax.plot(self.cpu_usage_history, color="skyblue")
         self.cpu_ax.set_ylim(0, 100)
         self.cpu_ax.set_title("CPU Usage (%)")
-        self.cpu_ax.set_yticklabels([])
+        self.cpu_ax.set_xticks([]) 
         self.canvas.draw()
 
     def update_memory_graph(self):
@@ -156,7 +156,7 @@ class DashboardApp:
         self.mem_ax.plot(self.swap_usage_history, color="blue", label="Swap Usage")
         self.mem_ax.set_ylim(0, 100)
         self.mem_ax.set_title("Memory and Swap Usage (%)")
-        self.mem_ax.set_yticklabels([])
+        self.mem_ax.set_xticks([])
         self.mem_ax.legend()
         self.canvas.draw()
 
@@ -172,13 +172,14 @@ class DashboardApp:
         self.refresh_network_graph()
         self.root.after(cycle_time, self.update_network_graph)
 
+
     def refresh_network_graph(self):
         self.net_ax.clear()
         self.net_ax.plot(self.network_receive_history, color="lightgreen", label="Download")
         self.net_ax.plot(self.network_transmit_history, color="orange", label="Upload")
         self.net_ax.set_ylim(0, max(max(self.network_receive_history), max(self.network_transmit_history)) * 1.1)
         self.net_ax.set_title("Network Usage (KB/s)")
-        self.net_ax.set_yticklabels([])
+        self.net_ax.set_xticks([])
         self.net_ax.legend()
         self.canvas.draw()
 
