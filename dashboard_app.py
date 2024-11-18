@@ -40,19 +40,32 @@ class DashboardApp:
             last_thread_num = num_threads
             print(f"Number of threads: {num_threads}")
 
-    def setup_widgets(self):
-        # grid principal
+    def setup_widgets(self): 
+        # Grid principal
         self.root.grid_rowconfigure(0, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
+        
+        # Frame contendo Canvas e Scrollbar
+        info_frame_container = tk.Frame(self.root, bg="lightgray")
+        info_frame_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        info_frame_container.grid_rowconfigure(0, weight=1)
+        info_frame_container.grid_columnconfigure(0, weight=1)
 
-        # informacoes do sistema
-        info_frame = tk.Frame(self.root, bg="lightgray")
-        info_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        info_frame.grid_rowconfigure(0, weight=1)
-        info_frame.grid_columnconfigure(0, weight=1)
+        # Canvas para tornar o frame rolável
+        canvas = tk.Canvas(info_frame_container, bg="lightgray")
+        canvas.grid(row=0, column=0, sticky="nsew")
+        
+        # Scrollbar vertical
+        scrollbar = tk.Scrollbar(info_frame_container, orient="vertical", command=canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-        # labels para informacoes do sistema
+        # Frame interno para conteúdo
+        info_frame = tk.Frame(canvas, bg="lightgray")
+        canvas.create_window((0, 0), window=info_frame, anchor="nw")
+
+        # Labels para informações do sistema
         for i, field in enumerate(self.sys_info.fields.keys()):
             frame = tk.Frame(info_frame, bg="white", padx=10, pady=5)
             frame.grid(row=i, column=0, sticky="ew", pady=3)
@@ -62,11 +75,17 @@ class DashboardApp:
             self.labels[field] = label
             self.root.after(0, self.update_field, field)
 
-        # botao da pagina de processos
+        # Ajusta o tamanho do canvas ao conteúdo
+        def update_scrollregion(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        info_frame.bind("<Configure>", update_scrollregion)
+
+        # Botão da página de processos
         self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
         self.process_button.grid(row=1, column=0, pady=10, padx=10, sticky="ew")
 
-        # graficos de CPU e memoria
+        # Gráficos de CPU e memória
         self.cpu_memory_frame = tk.Frame(self.root)
         self.cpu_memory_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
         self.cpu_memory_frame.grid_rowconfigure(0, weight=1)
@@ -161,6 +180,9 @@ class DashboardApp:
 
         self.process_window = tk.Toplevel(self.root)
         self.process_window.title("Process Information")
+        self.process_window.geometry("760x530")
+        self.process_window.resizable(False, True)
+        self.process_window.minsize(760, 200)
 
         # canvas e scrollbar
         self.process_canvas = tk.Canvas(self.process_window)

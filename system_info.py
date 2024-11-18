@@ -16,7 +16,13 @@ class SystemInfo:
             "Load Average": lib.getLoadAverage,
             "Process Count": lib.getProcessCount,
             "Thread Count": lib.getThreadCount,
-            "CPU Usage": lib.getCpuUsage
+            "CPU Usage": lib.getCpuUsage,
+            "CPU Temperature": lib.getCpuTemperature,
+            "Network Usage": lib.getNetworkUsage,
+            "Swap Usage": lib.getSwapUsage,
+            "OS Info": lib.getOsInfo,
+            "Architecture Info": lib.getArchitectureInfo,
+            "CPU Info": lib.getCpuInfo            
         }
 
         lib.getProcessesInfo.restype = c_char_p
