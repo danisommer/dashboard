@@ -156,6 +156,7 @@ public:
                     if (statusFile.is_open()) {
                         std::string line;
                         std::string name;
+                        std::string threads;
                         std::string state;
                         unsigned long vsize = 0;   // memoria virtual
                         long rss = 0;              // memoria fisica
@@ -167,6 +168,9 @@ public:
                             if (line.find("State:") == 0) {
                                 state = line.substr(line.find(":") + 2);
                             }
+                            if (line.find("Threads:") == 0) {
+                                threads = std::stoi(line.substr(line.find(":") + 1));
+                            }
                             if (line.find("VmSize:") == 0) {
                                 vsize = std::stoul(line.substr(line.find(":") + 2)) / 1024; // Em KB
                             }
@@ -176,7 +180,7 @@ public:
                             }
                         }
                         processesInfo << pid << "\t" << name << "\t" << state << "\t" 
-                                      << vsize << " KB\t" << rss << " KB\n";
+                        << threads << "\t" << vsize << " KB\t" << rss << " KB\n";
                         statusFile.close();
                     }
                 }

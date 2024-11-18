@@ -149,7 +149,7 @@ class DashboardApp:
 
         # atualiza o texto de cada label com as novas informacoes de processos
         for i, process in enumerate(processes):
-            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Memory: {process['memory']}"
+            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Threads: {process['threads']} | Memory: {process['memory']}"
             self.process_labels[i].config(text=text)
 
         # agenda a próxima atualização
@@ -187,7 +187,8 @@ class DashboardApp:
                     'pid': parts[0],
                     'name': parts[1],
                     'status': parts[2],
-                    'memory': f"Virtual: {parts[3]}, Physical: {parts[4]}"
+                    'threads': parts[3],
+                    'memory': f"Virtual: {parts[4]}, Physical: {parts[5]}"
                 }
                 processes.append(process)
         return processes
