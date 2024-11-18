@@ -17,8 +17,15 @@ class DashboardApp:
         self.root.title("System Dashboard")
         self.root.geometry("1200x530")
         self.root.resizable(True, False)
-
         self.root.minsize(600, 500)
+        
+        self.cpu_usage_history = []
+        self.mem_usage_history = []
+        self.swap_usage_history = []
+        self.network_receive_history = []
+        self.network_transmit_history = []
+        self.max_history_length = 100
+
         self.sys_info = SystemInfo()
 
         self.labels = {}
@@ -95,7 +102,7 @@ class DashboardApp:
 
     def setup_graphs(self):
         # criando a figura para os graficos
-        self.fig, (self.cpu_ax, self.mem_ax) = plt.subplots(2, 1, figsize=(6, 4))
+        self.fig, (self.cpu_ax, self.mem_ax, self.net_ax) = plt.subplots(3, 1, figsize=(6, 6))
         self.fig.tight_layout(pad=2.0)
 
         # canvas para exibir os graficos
@@ -105,6 +112,8 @@ class DashboardApp:
         # atualizacoes periodicas dos graficos
         self.root.after(cycle_time, self.update_cpu_graph)
         self.root.after(cycle_time, self.update_memory_graph)
+        self.root.after(cycle_time, self.update_network_graph)
+        #self.root.after(cycle_time, self.update_disk_graph)
 
     def update_field(self, field):
         value = self.sys_info.get_info(field)
@@ -115,28 +124,62 @@ class DashboardApp:
 
     def update_cpu_graph(self):
         self.cpu_usage = self.sys_info.get_cpu_usage()
+        self.cpu_usage_history.append(self.cpu_usage)
+        if len(self.cpu_usage_history) > self.max_history_length:
+            self.cpu_usage_history.pop(0)
         self.refresh_cpu_graph()
         self.root.after(cycle_time, self.update_cpu_graph)
 
     def refresh_cpu_graph(self):
         self.cpu_ax.clear()
-        self.cpu_ax.barh([0], [self.cpu_usage], color="skyblue")
-        self.cpu_ax.set_xlim(0, 100)
+        self.cpu_ax.plot(self.cpu_usage_history, color="skyblue")
+        self.cpu_ax.set_ylim(0, 100)
         self.cpu_ax.set_title("CPU Usage (%)")
         self.cpu_ax.set_yticklabels([])
         self.canvas.draw()
 
     def update_memory_graph(self):
         self.mem_usage = self.sys_info.get_memory_usage()
+        self.swap_usage = self.sys_info.get_swap_usage()
+        self.mem_usage_history.append(self.mem_usage)
+        self.swap_usage_history.append(self.swap_usage)
+        if len(self.mem_usage_history) > self.max_history_length:
+            self.mem_usage_history.pop(0)
+        if len(self.swap_usage_history) > self.max_history_length:
+            self.swap_usage_history.pop(0)
         self.refresh_memory_graph()
         self.root.after(cycle_time, self.update_memory_graph)
 
     def refresh_memory_graph(self):
         self.mem_ax.clear()
-        self.mem_ax.barh([0], [self.mem_usage], color="salmon")
-        self.mem_ax.set_xlim(0, 100)
-        self.mem_ax.set_title("Memory Usage (%)")
+        self.mem_ax.plot(self.mem_usage_history, color="salmon", label="Memory Usage")
+        self.mem_ax.plot(self.swap_usage_history, color="blue", label="Swap Usage")
+        self.mem_ax.set_ylim(0, 100)
+        self.mem_ax.set_title("Memory and Swap Usage (%)")
         self.mem_ax.set_yticklabels([])
+        self.mem_ax.legend()
+        self.canvas.draw()
+
+    def update_network_graph(self):
+        receive_rate = self.sys_info.get_network_receive_rate()
+        transmit_rate = self.sys_info.get_network_transmit_rate()
+        self.network_receive_history.append(receive_rate)
+        self.network_transmit_history.append(transmit_rate)
+        if len(self.network_receive_history) > self.max_history_length:
+            self.network_receive_history.pop(0)
+        if len(self.network_transmit_history) > self.max_history_length:
+            self.network_transmit_history.pop(0)
+        self.refresh_network_graph()
+        self.root.after(cycle_time, self.update_network_graph)
+
+    def refresh_network_graph(self):
+        self.net_ax.clear()
+        self.net_ax.plot(self.network_receive_history, color="lightgreen", label="Download")
+        self.net_ax.plot(self.network_transmit_history, color="orange", label="Upload")
+        self.net_ax.set_ylim(0, max(max(self.network_receive_history), max(self.network_transmit_history)) * 1.1)
+        self.net_ax.set_title("Network Usage (KB/s)")
+        self.net_ax.set_yticklabels([])
+        self.net_ax.legend()
         self.canvas.draw()
 
     def load_processes(self):

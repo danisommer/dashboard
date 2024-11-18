@@ -18,7 +18,8 @@ class SystemInfo:
             "Thread Count": lib.getThreadCount,
             "CPU Usage": lib.getCpuUsage,
             "CPU Temperature": lib.getCpuTemperature,
-            "Network Usage": lib.getNetworkUsage,
+            "Network Receive Rate": lib.getNetworkReceiveRate,
+            "Network Transmit Rate": lib.getNetworkTransmitRate,
             "Swap Usage": lib.getSwapUsage,
             "OS Info": lib.getOsInfo,
             "Architecture Info": lib.getArchitectureInfo,
@@ -34,6 +35,9 @@ class SystemInfo:
     def get_info(self, field):
         func = self.fields[field]
         value = func(self.obj).decode('utf-8')
+
+        if field in ["Network Receive Rate", "Network Transmit Rate"]:
+            value += " KB/s"
 
         if field == "CPU Usage":
             value += "%"
@@ -61,3 +65,12 @@ class SystemInfo:
 
         # retorna o uso de memoria como uma porcentagem
         return (used_memory / total_memory) * 100
+    
+    def get_network_receive_rate(self):
+        return float(lib.getNetworkReceiveRate(self.obj).decode('utf-8'))
+
+    def get_network_transmit_rate(self):
+        return float(lib.getNetworkTransmitRate(self.obj).decode('utf-8'))
+    
+    def get_swap_usage(self):
+        return float(lib.getSwapUsage(self.obj).decode('utf-8'))

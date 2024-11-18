@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sstream>
 #include <sys/utsname.h>
+#include <chrono>
 
 class SystemInfo {
 public:
@@ -166,28 +167,95 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter o uso de rede
-    const char* getNetworkUsage() {
+    // funcao para obter a taxa de recebimento de rede
+    const char* getNetworkReceiveRate() {
         static std::string info;
         info.clear();
+
+        static unsigned long long prevTotalReceived = 0;
+        static auto prevTime = std::chrono::steady_clock::now();
+
         std::ifstream netFile("/proc/net/dev");
         if (netFile.is_open()) {
             std::string line;
-            std::ostringstream netInfo;
+            unsigned long long totalReceived = 0;
+
+            // Skip the first two lines
+            std::getline(netFile, line);
+            std::getline(netFile, line);
+
             while (std::getline(netFile, line)) {
-                if (line.find("eth0:") != std::string::npos) {
-                    std::istringstream ss(line);
-                    std::string iface;
-                    unsigned long rxBytes, txBytes;
-                    ss >> iface >> rxBytes;
-                    for (int i = 0; i < 7; ++i) ss >> txBytes;
-                    netInfo << "Interface: " << iface << ", RX: " << rxBytes / (1024 * 1024) << " MB, TX: " << txBytes / (1024 * 1024) << " MB";
-                    break;
-                }
+                std::istringstream ss(line);
+                std::string iface;
+                unsigned long long received;
+                ss >> iface >> received;
+                totalReceived += received;
             }
             netFile.close();
-            info = netInfo.str();
+
+            // Get current time
+            auto currentTime = std::chrono::steady_clock::now();
+            std::chrono::duration<double> elapsedSeconds = currentTime - prevTime;
+
+            if (elapsedSeconds.count() > 0) {
+                double receiveRate = (totalReceived - prevTotalReceived) / elapsedSeconds.count();
+
+                std::ostringstream netInfo;
+                netInfo << receiveRate / 1024;
+                info = netInfo.str();
+            }
+
+            // Update previous values
+            prevTotalReceived = totalReceived;
+            prevTime = currentTime;
         }
+
+        return info.c_str();
+    }
+
+    // funcao para obter a taxa de transmissao de rede
+    const char* getNetworkTransmitRate() {
+        static std::string info;
+        info.clear();
+
+        static unsigned long long prevTotalTransmitted = 0;
+        static auto prevTime = std::chrono::steady_clock::now();
+
+        std::ifstream netFile("/proc/net/dev");
+        if (netFile.is_open()) {
+            std::string line;
+            unsigned long long totalTransmitted = 0;
+
+            // Skip the first two lines
+            std::getline(netFile, line);
+            std::getline(netFile, line);
+
+            while (std::getline(netFile, line)) {
+                std::istringstream ss(line);
+                std::string iface;
+                unsigned long long transmitted;
+                for (int i = 0; i < 9; ++i) ss >> transmitted;
+                totalTransmitted += transmitted;
+            }
+            netFile.close();
+
+            // Get current time
+            auto currentTime = std::chrono::steady_clock::now();
+            std::chrono::duration<double> elapsedSeconds = currentTime - prevTime;
+
+            if (elapsedSeconds.count() > 0) {
+                double transmitRate = (totalTransmitted - prevTotalTransmitted) / elapsedSeconds.count();
+
+                std::ostringstream netInfo;
+                netInfo << transmitRate / 1024;
+                info = netInfo.str();
+            }
+
+            // Update previous values
+            prevTotalTransmitted = totalTransmitted;
+            prevTime = currentTime;
+        }
+
         return info.c_str();
     }
 
@@ -197,8 +265,12 @@ public:
         info.clear();
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
+            double totalSwap = sys_info.totalswap / (1024.0 * 1024.0);
+            double freeSwap = sys_info.freeswap / (1024.0 * 1024.0);
+            double usedSwap = totalSwap - freeSwap;
+            double swapUsagePercentage = (usedSwap / totalSwap) * 100.0;
             std::ostringstream swapInfo;
-            swapInfo << "Total: " << sys_info.totalswap / (1024 * 1024) << " MB, Used: " << (sys_info.totalswap - sys_info.freeswap) / (1024 * 1024) << " MB, Free: " << sys_info.freeswap / (1024 * 1024) << " MB";
+            swapInfo << swapUsagePercentage;
             info = swapInfo.str();
         }
         return info.c_str();
@@ -362,8 +434,12 @@ extern "C" {
     return systemInfo->getCpuTemperature();
     }
 
-    const char* getNetworkUsage(SystemInfo* systemInfo) {
-        return systemInfo->getNetworkUsage();
+    const char* getNetworkReceiveRate(SystemInfo* systemInfo) {
+        return systemInfo->getNetworkReceiveRate();
+    }
+
+    const char* getNetworkTransmitRate(SystemInfo* systemInfo) {
+        return systemInfo->getNetworkTransmitRate();
     }
 
     const char* getSwapUsage(SystemInfo* systemInfo) {
