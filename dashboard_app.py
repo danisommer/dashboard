@@ -8,7 +8,7 @@ import psutil
 import queue
 import threading
 
-cycle_time = 1000  # milliseconds
+cycle_time = 1000  # milissegundos
 processes_thread = 5
 last_thread_num = 0
 
@@ -33,7 +33,7 @@ class DashboardApp:
 
         self.sys_info = SystemInfo()
 
-        self.label_vars = {}  # Using StringVar for label updates
+        self.label_vars = {}  # Usando StringVar para atualizações de rótulos
         self.labels = {}
         self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields) + processes_thread)
 
@@ -43,7 +43,7 @@ class DashboardApp:
 
         self.process_window = None
 
-        # Start processing the result queue
+        # Iniciar o processamento da fila de resultados
         self.root.after(100, self.process_queue)
 
     def get_num_threads(self):
@@ -52,34 +52,34 @@ class DashboardApp:
         num_threads = current_process.num_threads()
         if last_thread_num != num_threads:
             last_thread_num = num_threads
-            print(f"Number of threads: {num_threads}")
+            print(f"Número de threads: {num_threads}")
 
     def setup_widgets(self): 
-        # Main grid configuration
+        # Configuração principal da grade
         self.root.grid_rowconfigure(0, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
         
-        # Frame with Canvas and Scrollbar
+        # Quadro com Canvas e Scrollbar
         info_frame_container = tk.Frame(self.root, bg="lightgray")
         info_frame_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         info_frame_container.grid_rowconfigure(0, weight=1)
         info_frame_container.grid_columnconfigure(0, weight=1)
 
-        # Scrollable Canvas
+        # Canvas rolável
         canvas = tk.Canvas(info_frame_container, bg="lightgray")
         canvas.grid(row=0, column=0, sticky="nsew")
         
-        # Vertical Scrollbar
+        # Scrollbar vertical
         scrollbar = tk.Scrollbar(info_frame_container, orient="vertical", command=canvas.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Internal Frame for content
+        # Quadro interno para conteúdo
         info_frame = tk.Frame(canvas, bg="lightgray")
         canvas.create_window((0, 0), window=info_frame, anchor="nw")
 
-        # Labels for system information
+        # Rótulos para informações do sistema
         for i, field in enumerate(self.sys_info.fields.keys()):
             frame = tk.Frame(info_frame, bg="white", padx=10, pady=5)
             frame.grid(row=i, column=0, sticky="ew", pady=3)
@@ -88,20 +88,20 @@ class DashboardApp:
             label = tk.Label(frame, textvariable=self.label_vars[field], font=("Arial", 12), anchor="center", bg="white")
             label.pack(fill="x", padx=5)
             self.labels[field] = label
-            # Schedule updates
+            # Agendar atualizações
             self.update_field(field)
 
-        # Adjust canvas scroll region
+        # Ajustar a região de rolagem do canvas
         def update_scrollregion(event):
             canvas.configure(scrollregion=canvas.bbox("all"))
 
         info_frame.bind("<Configure>", update_scrollregion)
 
-        # Button to show processes
-        self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
+        # Botão para mostrar processos
+        self.process_button = tk.Button(self.root, text="Mostrar Processos", command=self.show_processes)
         self.process_button.grid(row=1, column=0, pady=10, padx=10, sticky="ew")
 
-        # CPU and Memory graphs
+        # Gráficos de CPU e Memória
         self.cpu_memory_frame = tk.Frame(self.root)
         self.cpu_memory_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
         self.cpu_memory_frame.grid_rowconfigure(0, weight=1)
@@ -110,55 +110,55 @@ class DashboardApp:
         self.setup_graphs()
 
     def setup_graphs(self):
-        # Create figure for graphs
+        # Criar figura para gráficos
         self.fig, (self.cpu_ax, self.mem_ax, self.net_ax, self.disk_ax) = plt.subplots(4, 1, figsize=(6, 8))
         self.fig.tight_layout(pad=2.0)
 
-        # Canvas to display graphs
+        # Canvas para exibir gráficos
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.cpu_memory_frame)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Initialize line objects
-        self.cpu_line, = self.cpu_ax.plot([], [], color="skyblue", label="CPU Usage")
-        self.mem_line, = self.mem_ax.plot([], [], color="salmon", label="Memory Usage")
-        self.swap_line, = self.mem_ax.plot([], [], color="blue", label="Swap Usage")
+        # Inicializar objetos de linha
+        self.cpu_line, = self.cpu_ax.plot([], [], color="skyblue", label="Uso da CPU")
+        self.mem_line, = self.mem_ax.plot([], [], color="salmon", label="Uso da Memória")
+        self.swap_line, = self.mem_ax.plot([], [], color="blue", label="Uso da Swap")
         self.net_receive_line, = self.net_ax.plot([], [], color="lightgreen", label="Download")
         self.net_transmit_line, = self.net_ax.plot([], [], color="orange", label="Upload")
-        self.disk_line, = self.disk_ax.plot([], [], color="purple", label="Disk Usage")
+        self.disk_line, = self.disk_ax.plot([], [], color="purple", label="Uso do Disco")
 
         self.cpu_ax.set_ylim(0, 100)
-        self.cpu_ax.set_title("CPU Usage (%)")
+        self.cpu_ax.set_title("Uso da CPU (%)")
         self.cpu_ax.set_xticks([])
         self.cpu_ax.legend()
 
         self.mem_ax.set_ylim(0, 100)
-        self.mem_ax.set_title("Memory and Swap Usage (%)")
+        self.mem_ax.set_title("Uso da Memória e Swap (%)")
         self.mem_ax.set_xticks([])
         self.mem_ax.legend()
 
-        self.net_ax.set_title("Network Usage (KB/s)")
+        self.net_ax.set_title("Uso da Rede (KB/s)")
         self.net_ax.set_xticks([])
         self.net_ax.legend()
 
-        self.disk_ax.set_title("Disk Usage (%)")
+        self.disk_ax.set_title("Uso do Disco (%)")
         self.disk_ax.set_ylim(0, 100)
         self.disk_ax.set_xticks([])
         self.disk_ax.legend()
 
         for core in range(self.num_cores):
-            line, = self.cpu_ax.plot([], [], label=f"Core {core + 1}")
+            line, = self.cpu_ax.plot([], [], label=f"Núcleo {core + 1}")
             self.cpu_core_lines.append(line)
 
         self.cpu_ax.legend()
 
-        # Schedule graph updates
+        # Agendar atualizações dos gráficos
         self.root.after(cycle_time, self.update_cpu_graph)
         self.root.after(cycle_time, self.update_memory_graph)
         self.root.after(cycle_time, self.update_network_graph)
         self.root.after(cycle_time, self.update_disk_graph)
 
     def update_field(self, field):
-        # Heavy computation in a separate thread
+        # Computação pesada em uma thread separada
         def worker():
             value = self.sys_info.get_info(field)
             self.result_queue.put(('field', field, value))
@@ -210,7 +210,7 @@ class DashboardApp:
 
     def update_cpu_graph(self):
         def worker():
-            core_usages = psutil.cpu_percent(percpu=True)  # Fetch per-core usage
+            core_usages = psutil.cpu_percent(percpu=True)  # Buscar uso por núcleo
             self.result_queue.put(('cpu', core_usages))
         threading.Thread(target=worker).start()
         self.root.after(cycle_time, self.update_cpu_graph)
@@ -221,11 +221,11 @@ class DashboardApp:
             ydata = self.cpu_core_usage_histories[core_index]
             line.set_data(xdata[-len(ydata):], ydata)
         self.cpu_ax.set_xlim(0, self.max_history_length)
-        self.cpu_ax.set_ylim(0, 100)  # Assuming percentage usage
+        self.cpu_ax.set_ylim(0, 100)  # Assumindo uso em porcentagem
         self.canvas.draw_idle()
 
     def update_memory_graph(self):
-        # Heavy computation in a separate thread
+        # Computação pesada em uma thread separada
         def worker():
             mem_usage = self.sys_info.get_memory_usage()
             swap_usage = self.sys_info.get_swap_usage()
@@ -241,7 +241,7 @@ class DashboardApp:
         self.canvas.draw_idle()
 
     def update_network_graph(self):
-        # Heavy computation in a separate thread
+        # Computação pesada em uma thread separada
         def worker():
             receive_rate = self.sys_info.get_network_receive_rate()
             transmit_rate = self.sys_info.get_network_transmit_rate()
@@ -256,12 +256,12 @@ class DashboardApp:
         self.net_ax.set_xlim(0, self.max_history_length)
         max_rate = max(max(self.network_receive_history), max(self.network_transmit_history)) * 1.1
         if max_rate == 0:
-            max_rate = 1  # Set a minimum y-limit
+            max_rate = 1  # Definir um limite mínimo para y
         self.net_ax.set_ylim(0, max_rate)
         self.canvas.draw_idle()
 
     def update_disk_graph(self):
-        # Heavy computation in a separate thread
+        # Computação pesada em uma thread separada
         def worker():
             used_disk = self.sys_info.get_used_disk()
             free_disk = self.sys_info.get_free_disk()
@@ -279,7 +279,7 @@ class DashboardApp:
 
     def load_processes(self):
         self.process_labels = {}
-        # Load processes in a separate thread
+        # Carregar processos em uma thread separada
         def worker():
             processes_info = self.sys_info.get_processes_info()
             processes = self.parse_processes_info(processes_info)
@@ -289,7 +289,7 @@ class DashboardApp:
     def refresh_processes(self):
         if self.process_window is None or not self.process_window.winfo_exists():
             return
-        # Refresh processes in a separate thread
+        # Atualizar processos em uma thread separada
         def worker():
             processes_info = self.sys_info.get_processes_info()
             processes = self.parse_processes_info(processes_info)
@@ -300,11 +300,11 @@ class DashboardApp:
     def update_process_labels(self, processes):
         if self.process_window is None or not self.process_window.winfo_exists():
             return
-        # Filter active processes
+        # Filtrar processos ativos
         active_processes = [p for p in processes if p['status'] == 'running']
-        # Update labels
+        # Atualizar rótulos
         for pid, process in enumerate(active_processes):
-            text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Threads: {process['threads']} | Memory: {process['memory']}"
+            text = f"PID: {process['pid']} | Nome: {process['name']} | Status: {process['status']} | Threads: {process['threads']} | Memória: {process['memory']}"
             if pid in self.process_labels:
                 current_text = self.process_labels[pid]['text']
                 if current_text != text:
@@ -319,11 +319,11 @@ class DashboardApp:
             self.process_window.lift()
             return
         self.process_window = tk.Toplevel(self.root)
-        self.process_window.title("Process Information")
+        self.process_window.title("Informações do Processo")
         self.process_window.geometry("760x530")
         self.process_window.resizable(False, True)
         self.process_window.minsize(760, 200)
-        # Canvas and scrollbar
+        # Canvas e scrollbar
         self.process_canvas = tk.Canvas(self.process_window)
         self.scrollbar = ttk.Scrollbar(self.process_window, orient="vertical", command=self.process_canvas.yview)
         self.scrollbar.pack(side="right", fill="y")
@@ -337,7 +337,7 @@ class DashboardApp:
 
     def parse_processes_info(self, processes_info):
         processes = []
-        lines = processes_info.strip().split('\n')[1:]  # Ignore header line
+        lines = processes_info.strip().split('\n')[1:]  # Ignorar linha de cabeçalho
         for line in lines:
             parts = line.split()
             process = {
