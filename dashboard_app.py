@@ -9,6 +9,7 @@ import queue
 import threading
 
 cycle_time = 1000  # milissegundos
+cycle_time_graphs = 500  # milissegundos
 processes_thread = 5
 last_thread_num = 0
 
@@ -19,7 +20,7 @@ class DashboardApp:
         self.root.geometry("1200x530")
         self.root.resizable(True, True)
         self.root.minsize(600, 500)
-        
+
         self.cpu_usage_history = []
         self.mem_usage_history = []
         self.swap_usage_history = []
@@ -33,7 +34,7 @@ class DashboardApp:
 
         self.sys_info = SystemInfo()
 
-        self.label_vars = {}  # usando StringVar para atualizacoes de rotulos
+        self.label_vars = {}
         self.labels = {}
         self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields) + processes_thread)
 
@@ -43,16 +44,33 @@ class DashboardApp:
 
         self.process_window = None
 
-        # iniciar o processamento da fila de resultados
+        self.initialize_cpu_core_histories()
+        self.initialize_memory_histories()
+        self.initialize_network_histories()
+        self.initialize_disk_histories()
         self.root.after(100, self.process_queue)
+        
+    def initialize_cpu_core_histories(self):
+        core_usages = self.sys_info.get_cpu_usage_per_core()
+        for core_index, usage in enumerate(core_usages):
+            # preencher com um valor neutro
+            self.cpu_core_usage_histories[core_index] = [0] * self.max_history_length
 
-    def get_num_threads(self):
-        global last_thread_num
-        current_process = psutil.Process()
-        num_threads = current_process.num_threads()
-        if last_thread_num != num_threads:
-            last_thread_num = num_threads
-            print(f"Número de threads: {num_threads}")
+    def initialize_memory_histories(self):
+        mem_usage = self.sys_info.get_memory_usage()
+        swap_usage = self.sys_info.get_swap_usage()
+        self.mem_usage_history = [mem_usage] * self.max_history_length
+        self.swap_usage_history = [swap_usage] * self.max_history_length
+
+    def initialize_network_histories(self):
+        receive_rate = self.sys_info.get_network_receive_rate()
+        transmit_rate = self.sys_info.get_network_transmit_rate()
+        self.network_receive_history = [receive_rate] * self.max_history_length
+        self.network_transmit_history = [transmit_rate] * self.max_history_length
+
+    def initialize_disk_histories(self):
+        disk_usage = self.sys_info.get_used_disk()
+        self.disk_usage_history = [disk_usage] * self.max_history_length
 
     def setup_widgets(self): 
         # configuracao principal da grade
@@ -119,7 +137,6 @@ class DashboardApp:
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # inicializar objetos de linha
-        self.cpu_line, = self.cpu_ax.plot([], [], color="skyblue", label="CPU Usage")
         self.mem_line, = self.mem_ax.plot([], [], color="salmon", label="Memory Usage")
         self.swap_line, = self.mem_ax.plot([], [], color="blue", label="Swap Usage")
         self.net_receive_line, = self.net_ax.plot([], [], color="lightgreen", label="Download")
@@ -127,7 +144,7 @@ class DashboardApp:
         self.disk_line, = self.disk_ax.plot([], [], color="purple", label="Disk Usage")
 
         self.cpu_ax.set_ylim(0, 100)
-        self.cpu_ax.set_title("CPU Usage (%)")
+        self.cpu_ax.set_title("CPU Usage (MHz)")
         self.cpu_ax.set_xticks([])
         self.cpu_ax.legend()
 
@@ -210,18 +227,20 @@ class DashboardApp:
 
     def update_cpu_graph(self):
         def worker():
-            core_usages = psutil.cpu_percent(percpu=True)  # buscar uso por núcleo
+            core_usages = self.sys_info.get_cpu_usage_per_core()
             self.result_queue.put(('cpu', core_usages))
         threading.Thread(target=worker).start()
-        self.root.after(cycle_time, self.update_cpu_graph)
+        self.root.after(cycle_time_graphs, self.update_cpu_graph)
 
     def refresh_cpu_graph(self):
-        xdata = range(self.max_history_length)
+        xdata = range(len(self.cpu_core_usage_histories[0]))
         for core_index, line in enumerate(self.cpu_core_lines):
             ydata = self.cpu_core_usage_histories[core_index]
-            line.set_data(xdata[-len(ydata):], ydata)
+            # Calcular a média de maneira adaptativa
+            avg_ydata = [sum(ydata[max(0, i - 9):i + 1]) / min(10, i + 1) for i in range(len(ydata))]            
+            line.set_data(xdata[-len(avg_ydata):], avg_ydata)
         self.cpu_ax.set_xlim(0, self.max_history_length)
-        self.cpu_ax.set_ylim(0, 100)  # assumindo uso em porcentagem
+        self.cpu_ax.set_ylim(0, max(max(core_data) for core_data in self.cpu_core_usage_histories) * 1.1)
         self.canvas.draw_idle()
 
     def update_memory_graph(self):
@@ -231,7 +250,7 @@ class DashboardApp:
             swap_usage = self.sys_info.get_swap_usage()
             self.result_queue.put(('memory', mem_usage, swap_usage))
         threading.Thread(target=worker).start()
-        self.root.after(cycle_time, self.update_memory_graph)
+        self.root.after(cycle_time_graphs, self.update_memory_graph)
 
     def refresh_memory_graph(self):
         xdata = range(len(self.mem_usage_history))
@@ -247,7 +266,7 @@ class DashboardApp:
             transmit_rate = self.sys_info.get_network_transmit_rate()
             self.result_queue.put(('network', receive_rate, transmit_rate))
         threading.Thread(target=worker).start()
-        self.root.after(cycle_time, self.update_network_graph)
+        self.root.after(cycle_time_graphs, self.update_network_graph)
 
     def refresh_network_graph(self):
         xdata = range(len(self.network_receive_history))
@@ -269,7 +288,7 @@ class DashboardApp:
             disk_usage = (used_disk / total_disk) * 100 if total_disk > 0 else 0
             self.result_queue.put(('disk', disk_usage))
         threading.Thread(target=worker).start()
-        self.root.after(cycle_time, self.update_disk_graph)
+        self.root.after(cycle_time_graphs, self.update_disk_graph)
 
     def refresh_disk_graph(self):
         xdata = range(len(self.disk_usage_history))
