@@ -22,8 +22,7 @@ class SystemInfo:
             "Network Transmit Rate": lib.getNetworkTransmitRate,
             "Swap Usage": lib.getSwapUsage,
             "OS Info": lib.getOsInfo,
-            "Architecture Info": lib.getArchitectureInfo,
-            "CPU Info": lib.getCpuInfo            
+            "Architecture Info": lib.getArchitectureInfo
         }
         # define o tipo de retorno para cada funcao
         for func in self.fields.values():
