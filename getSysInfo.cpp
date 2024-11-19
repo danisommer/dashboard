@@ -321,14 +321,13 @@ public:
             std::string line;
             std::ostringstream cpuInfo;
             while (std::getline(cpuFile, line)) {
-                if (line.find("model name") != std::string::npos) {
-                    cpuInfo << line << "\n";
-                }
-                if (line.find("cpu cores") != std::string::npos) {
-                    cpuInfo << line << "\n";
-                }
                 if (line.find("cpu MHz") != std::string::npos) {
-                    cpuInfo << line << "\n";
+                    // Localiza a posição do ":" e pega o valor após ela
+                    size_t pos = line.find(":");
+                    if (pos != std::string::npos) {
+                        std::string value = line.substr(pos + 1);
+                        cpuInfo << value << "\t"; 
+                    }
                 }
             }
             cpuFile.close();
@@ -336,8 +335,6 @@ public:
         }
         return info.c_str();
     }
-
-
 
     // funcao para obter informacoes detalhadas dos processos
     const char* getProcessesInfo() {

@@ -26,6 +26,9 @@ class DashboardApp:
         self.disk_usage_history = []
         self.network_receive_history = []
         self.network_transmit_history = []
+        self.num_cores = psutil.cpu_count(logical=True)
+        self.cpu_core_usage_histories = [[] for _ in range(self.num_cores)]
+        self.cpu_core_lines = []
         self.max_history_length = 50
 
         self.sys_info = SystemInfo()
@@ -142,6 +145,12 @@ class DashboardApp:
         self.disk_ax.set_xticks([])
         self.disk_ax.legend()
 
+        for core in range(self.num_cores):
+            line, = self.cpu_ax.plot([], [], label=f"Core {core + 1}")
+            self.cpu_core_lines.append(line)
+
+        self.cpu_ax.legend()
+
         # Schedule graph updates
         self.root.after(cycle_time, self.update_cpu_graph)
         self.root.after(cycle_time, self.update_memory_graph)
@@ -163,10 +172,11 @@ class DashboardApp:
                 field, value = item[1], item[2]
                 self.label_vars[field].set(f"{field}:\n{value}")
             elif item[0] == 'cpu':
-                cpu_usage = item[1]
-                self.cpu_usage_history.append(cpu_usage)
-                if len(self.cpu_usage_history) > self.max_history_length:
-                    self.cpu_usage_history.pop(0)
+                core_usages = item[1]
+                for core_index, usage in enumerate(core_usages):
+                    self.cpu_core_usage_histories[core_index].append(usage)
+                    if len(self.cpu_core_usage_histories[core_index]) > self.max_history_length:
+                        self.cpu_core_usage_histories[core_index].pop(0)
                 self.refresh_cpu_graph()
             elif item[0] == 'memory':
                 mem_usage, swap_usage = item[1], item[2]
@@ -188,9 +198,10 @@ class DashboardApp:
                 self.refresh_network_graph()
             elif item[0] == 'disk':
                 disk_usage = item[1]
+                if not hasattr(self, 'disk_usage_history'):
+                    self.disk_usage_history = []
                 self.disk_usage_history.append(disk_usage)
-                if len(self.disk_usage_history) > self.max_history_length:
-                    self.disk_usage_history.pop(0)
+                self.disk_usage_history = self.disk_usage_history[-self.max_history_length:]
                 self.refresh_disk_graph()
             elif item[0] == 'processes':
                 processes = item[1]
@@ -198,17 +209,19 @@ class DashboardApp:
         self.root.after(100, self.process_queue)
 
     def update_cpu_graph(self):
-        # Heavy computation in a separate thread
         def worker():
-            cpu_usage = self.sys_info.get_cpu_usage()
-            self.result_queue.put(('cpu', cpu_usage))
+            core_usages = psutil.cpu_percent(percpu=True)  # Fetch per-core usage
+            self.result_queue.put(('cpu', core_usages))
         threading.Thread(target=worker).start()
         self.root.after(cycle_time, self.update_cpu_graph)
 
     def refresh_cpu_graph(self):
-        xdata = range(len(self.cpu_usage_history))
-        self.cpu_line.set_data(xdata, self.cpu_usage_history)
+        xdata = range(self.max_history_length)
+        for core_index, line in enumerate(self.cpu_core_lines):
+            ydata = self.cpu_core_usage_histories[core_index]
+            line.set_data(xdata[-len(ydata):], ydata)
         self.cpu_ax.set_xlim(0, self.max_history_length)
+        self.cpu_ax.set_ylim(0, 100)  # Assuming percentage usage
         self.canvas.draw_idle()
 
     def update_memory_graph(self):
@@ -295,15 +308,15 @@ class DashboardApp:
             if pid in self.process_labels:
                 current_text = self.process_labels[pid]['text']
                 if current_text != text:
-                    self.process_labels[pid]['label'].config(text=text)
                     self.process_labels[pid]['text'] = text
             else:
-                label = tk.Label(self.process_frame, text=text, font=("Arial", 10))
-                label.pack(pady=3)
-                self.process_labels[pid] = {'label': label, 'text': text}
+                label = tk.Label(self.process_frame, text=text, anchor="w", justify="left")
+                label.grid(row=pid, column=0, sticky="w")
+                self.process_labels[pid] = label
 
     def show_processes(self):
         if self.process_window is not None and self.process_window.winfo_exists():
+            self.process_window.lift()
             return
         self.process_window = tk.Toplevel(self.root)
         self.process_window.title("Process Information")
@@ -326,21 +339,16 @@ class DashboardApp:
         processes = []
         lines = processes_info.strip().split('\n')[1:]  # Ignore header line
         for line in lines:
-            if line.strip():
-                parts = line.split('\t')
-                process = {
-                    'pid': parts[0],
-                    'name': parts[1],
-                    'status': parts[2],
-                    'threads': parts[3],
-                    'memory': f"Virtual: {parts[4]}, Physical: {parts[5]}"
-                }
-                processes.append(process)
+            parts = line.split()
+            process = {
+                'pid': parts[0],
+                'name': parts[1],
+                'status': parts[2],
+                'threads': parts[3],
+                'memory': parts[4]
+            }
+            processes.append(process)
         return processes
-
-    def stop_refreshing_processes(self):
-        # Cancel scheduled process refresh
-        pass
 
     def stop(self):
         self.executor.shutdown(wait=False)

@@ -25,7 +25,6 @@ class SystemInfo:
             "Architecture Info": lib.getArchitectureInfo,
             "CPU Info": lib.getCpuInfo            
         }
-
         # define o tipo de retorno para cada funcao
         for func in self.fields.values():
             func.restype = c_char_p
@@ -46,8 +45,18 @@ class SystemInfo:
         return value
 
     def get_cpu_usage(self):
-        # chama a funcao em c++ e retorna o resultado decodificado como um float
+        lib.getCpuUsage.restype = c_char_p
         return float(lib.getCpuUsage(self.obj).decode('utf-8'))
+
+    def get_cpu_usage_per_core(self):
+        lib.getCpuInfo.restype = c_char_p
+        cpu_usage_str = lib.getCpuInfo(self.obj).decode('utf-8')
+        cpu_usage_list = cpu_usage_str.split("\t")
+        
+        # Remove empty strings and convert to floats
+        cpu_usage_list = [float(usage.strip()) for usage in cpu_usage_list if usage.strip()]
+        
+        return cpu_usage_list
 
     def get_memory_usage(self):
         # obtem memoria total e livre da biblioteca c++
