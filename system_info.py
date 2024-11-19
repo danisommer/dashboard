@@ -74,6 +74,7 @@ class SystemInfo:
     
     def get_processes_info(self):
         lib.getProcessesInfo.restype = c_char_p
+        print(lib.getProcessesInfo(self.obj).decode('utf-8'))
         return lib.getProcessesInfo(self.obj).decode('utf-8')
     
     def get_used_disk(self):

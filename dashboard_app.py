@@ -1,10 +1,10 @@
+import re
 import tkinter as tk
 from tkinter import ttk
 from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from system_info import SystemInfo
-import psutil
 import queue
 import threading
 
@@ -27,7 +27,7 @@ class DashboardApp:
         self.disk_usage_history = []
         self.network_receive_history = []
         self.network_transmit_history = []
-        self.num_cores = psutil.cpu_count(logical=True)
+        self.num_cores = 8 #TODO: get from system_info
         self.cpu_core_usage_histories = [[] for _ in range(self.num_cores)]
         self.cpu_core_lines = []
         self.max_history_length = 50
@@ -356,17 +356,18 @@ class DashboardApp:
 
     def parse_processes_info(self, processes_info):
         processes = []
-        lines = processes_info.strip().split('\n')[1:]  # ignorar linha de cabecalho
+        lines = processes_info.strip().split('\n')[1:]  # Ignora a linha de cabeçalho
         for line in lines:
-            parts = line.split()
-            process = {
-                'pid': parts[0],
-                'name': parts[1],
-                'status': parts[2],
-                'threads': parts[3],
-                'memory': parts[4]
-            }
-            processes.append(process)
+            parts = re.split(r'\s{2,}', line.strip())  # Divide onde há dois ou mais espaços
+            if len(parts) >= 5:
+                process = {
+                    'pid': parts[0],
+                    'name': parts[1],
+                    'status': parts[2],
+                    'threads': parts[3],
+                    'memory': parts[4]
+                }
+                processes.append(process)
         return processes
 
     def stop(self):
