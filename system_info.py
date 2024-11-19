@@ -53,7 +53,7 @@ class SystemInfo:
         cpu_usage_str = lib.getCpuInfo(self.obj).decode('utf-8')
         cpu_usage_list = cpu_usage_str.split("\t")
         
-        # Remove empty strings and convert to floats
+        # remove strings vazias e converte para float
         cpu_usage_list = [float(usage.strip()) for usage in cpu_usage_list if usage.strip()]
         
         return cpu_usage_list
