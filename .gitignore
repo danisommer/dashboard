@@ -1,5 +1,5 @@
 target/
-/__pycache__/
+__pycache__/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
