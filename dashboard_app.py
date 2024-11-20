@@ -17,9 +17,9 @@ class DashboardApp:
     def __init__(self, root):
         self.root = root
         self.root.title("System Dashboard")
-        self.root.geometry("1200x530")
+        self.root.geometry("1200x590")
         self.root.resizable(True, True)
-        self.root.minsize(600, 500)
+        self.root.minsize(800, 590)
 
         self.cpu_usage_history = []
         self.mem_usage_history = []
@@ -78,24 +78,11 @@ class DashboardApp:
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
         
-        # quadro com Canvas e Scrollbar
-        info_frame_container = tk.Frame(self.root, bg="lightgray")
-        info_frame_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        info_frame_container.grid_rowconfigure(0, weight=1)
-        info_frame_container.grid_columnconfigure(0, weight=1)
-
-        # canvas rolavel
-        canvas = tk.Canvas(info_frame_container, bg="lightgray")
-        canvas.grid(row=0, column=0, sticky="nsew")
-        
-        # scrollbar vertical
-        scrollbar = tk.Scrollbar(info_frame_container, orient="vertical", command=canvas.yview)
-        scrollbar.grid(row=0, column=1, sticky="ns")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        # quadro interno para conteudo
-        info_frame = tk.Frame(canvas, bg="lightgray")
-        canvas.create_window((0, 0), window=info_frame, anchor="nw")
+        # quadro para conteudo
+        info_frame = tk.Frame(self.root, bg="lightgray")
+        info_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        info_frame.grid_rowconfigure(0, weight=1)
+        info_frame.grid_columnconfigure(0, weight=1)
 
         # rotulos para informacoes do sistema
         for i, field in enumerate(self.sys_info.fields.keys()):
@@ -108,12 +95,6 @@ class DashboardApp:
             self.labels[field] = label
             # agendar atualizacoes
             self.update_field(field)
-
-        # ajustar a regiao de rolagem do canvas
-        def update_scrollregion(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-
-        info_frame.bind("<Configure>", update_scrollregion)
 
         # botao para mostrar processos
         self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
@@ -129,7 +110,7 @@ class DashboardApp:
 
     def setup_graphs(self):
         # criar figura para graficos
-        self.fig, (self.cpu_ax, self.mem_ax, self.net_ax, self.disk_ax) = plt.subplots(4, 1, figsize=(6, 8))
+        self.fig, ((self.cpu_ax, self.mem_ax), (self.net_ax, self.disk_ax)) = plt.subplots(2, 2, figsize=(12, 8))
         self.fig.tight_layout(pad=2.0)
 
         # canvas para exibir graficos
@@ -146,7 +127,6 @@ class DashboardApp:
         self.cpu_ax.set_ylim(0, 100)
         self.cpu_ax.set_title("CPU Usage (MHz)")
         self.cpu_ax.set_xticks([])
-        self.cpu_ax.legend()
 
         self.mem_ax.set_ylim(0, 100)
         self.mem_ax.set_title("Memory and Swap Usage (%)")
@@ -173,7 +153,7 @@ class DashboardApp:
         self.root.after(cycle_time, self.update_memory_graph)
         self.root.after(cycle_time, self.update_network_graph)
         self.root.after(cycle_time, self.update_disk_graph)
-
+        
     def update_field(self, field):
         # computacao pesada em uma thread separada
         def worker():
@@ -326,7 +306,7 @@ class DashboardApp:
             text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Threads: {process['threads']} | Memory: {process['memory']}"
             if pid in self.process_labels:
                 current_text = self.process_labels[pid]['text']
-                if current_text != text:
+                if (current_text != text):
                     self.process_labels[pid]['text'] = text
             else:
                 label = tk.Label(self.process_frame, text=text, anchor="w", justify="left")

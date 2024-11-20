@@ -10,20 +10,22 @@ class SystemInfo:
 
         # dicionario de funcoes a serem chamadas
         self.fields = {
+            "OS Info": lib.getOsInfo,
+            "Architecture Info": lib.getArchitectureInfo,
             "Uptime": lib.getUptime,
-            "Total Memory": lib.getTotalMemory,
-            "Free Memory": lib.getFreeMemory,
-            "Load Average": lib.getLoadAverage,
-            "Process Count": lib.getProcessCount,
-            "Thread Count": lib.getThreadCount,
             "CPU Usage": lib.getCpuUsage,
             "CPU Temperature": lib.getCpuTemperature,
-            "Network Receive Rate": lib.getNetworkReceiveRate,
-            "Network Transmit Rate": lib.getNetworkTransmitRate,
-            "Swap Usage": lib.getSwapUsage,
-            "OS Info": lib.getOsInfo,
-            "Architecture Info": lib.getArchitectureInfo
+            "Load Average": lib.getLoadAverage,
+            "Process Count": lib.getProcessCount,
+            "Thread Count": lib.getThreadCount
         }
+
+        lib.getTotalMemory.restype = c_char_p
+        lib.getFreeMemory.restype = c_char_p
+        lib.getNetworkReceiveRate.restype = c_char_p
+        lib.getNetworkTransmitRate.restype = c_char_p
+        lib.getSwapUsage.restype = c_char_p
+
         # define o tipo de retorno para cada funcao
         for func in self.fields.values():
             func.restype = c_char_p
