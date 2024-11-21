@@ -289,10 +289,10 @@ class DashboardApp:
         self.process_window.grid_rowconfigure(0, weight=1)
         self.process_window.grid_columnconfigure(0, weight=1)
         
-        columns = ("PID", "Name", "State", "Threads", "Virtual Memory", "Physical Memory") 
+        columns = ("PID", "Name", "State", "Threads", "Physical Memory", "Virtual Memory") 
         self.process_tree = ttk.Treeview(self.process_window, columns=columns, show="headings")
         
-        column_widths = {"PID": 60, "Name": 200, "State": 80, "Threads": 60, "Virtual Memory": 100, "Physical Memory": 100}
+        column_widths = {"PID": 60, "Name": 200, "State": 80, "Threads": 60, "Physical Memory": 100, "Virtual Memory": 100}
         for col in columns:
             self.process_tree.heading(col, text=col, command=lambda _col=col: self.sort_processes(_col))
             self.process_tree.column(col, anchor="center", minwidth=column_widths[col], width=column_widths[col], stretch=True)
@@ -314,6 +314,33 @@ class DashboardApp:
 
         self.sort_column = None
         self.sort_reverse = False
+
+        # botao para matar processo
+        self.kill_button = tk.Button(self.process_window, text="Kill Process", command=self.kill_selected_process)
+        self.kill_button.grid(row=1, column=0, pady=10, padx=10, sticky="ew")
+        self.kill_button.config(state=tk.DISABLED)
+        # desabilita o botao se nao houver processo selecionado
+        self.process_tree.bind("<<TreeviewSelect>>", lambda event: self.update_kill_button_state())
+
+    def update_kill_button_state(self):
+        selected_item = self.process_tree.selection()
+        if selected_item:
+            self.kill_button.config(state=tk.NORMAL)
+        else:
+            self.kill_button.config(state=tk.DISABLED)
+
+
+    def kill_selected_process(self):
+        selected_item = self.process_tree.selection()
+        if selected_item:
+            pid = self.process_tree.item(selected_item[0], 'values')[0]
+            try:
+                pid = int(pid)
+                result = self.sys_info.kill_process(pid)
+                if result == "0":
+                    self.update_processes()
+            except ValueError:
+                tk.messagebox.showerror("Error", "Invalid PID")
             
     def sort_processes(self, col, invert_sort=True):
         if col != self.sort_column:  # se clicou em uma coluna diferente, ordena normalmente

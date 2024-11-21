@@ -85,3 +85,7 @@ class SystemInfo:
     def get_free_disk(self):
         lib.getFreeDisk.restype = c_char_p
         return float(lib.getFreeDisk(self.obj).decode('utf-8'))
+    
+    def kill_process(self, pid):
+        lib.killProcess.restype = c_char_p
+        return lib.killProcess(self.obj, pid)

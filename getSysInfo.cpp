@@ -12,6 +12,7 @@
 #include <sys/utsname.h>
 #include <chrono>
 #include <algorithm>
+#include <signal.h>
 
 class SystemInfo {
 public:
@@ -409,6 +410,14 @@ public:
 
     }
 
+    const int killProcess(int pid) {
+        if (kill(pid, SIGKILL) == -1) {
+            return -1; // erro
+        } else {
+            return 0; // sucesso
+        }
+    }
+
 };
 
 extern "C" {
@@ -482,5 +491,9 @@ extern "C" {
 
     const char* getProcessesInfo(SystemInfo* systemInfo) { 
         return systemInfo->getProcessesInfo();
+    }
+
+    const int killProcess(SystemInfo* systemInfo, int pid) {
+        return systemInfo->killProcess(pid);
     }
 }
