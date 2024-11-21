@@ -37,3 +37,5 @@ build/
 
 ### Mac OS ###
 .DS_Store
+__pycache__/dashboard_app.cpython-312.pyc
+__pycache__/system_info.cpython-312.pyc
