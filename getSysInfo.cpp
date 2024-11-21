@@ -11,6 +11,7 @@
 #include <sstream>
 #include <sys/utsname.h>
 #include <chrono>
+#include <algorithm>
 
 class SystemInfo {
 public:
@@ -337,12 +338,18 @@ public:
         return info.c_str();
     }
 
+    std::string replaceTabsWithSpaces(const std::string& input) {
+        std::string output = input;
+        std::replace(output.begin(), output.end(), '\t', ' ');
+        return output;
+    }
+
     // funcao para obter informacoes detalhadas dos processos
     const char* getProcessesInfo() {
         static std::string info;
 
         std::ostringstream processesInfo;
-        processesInfo << "PID\tName\tStatus\tVirtual Memory\tPhysical Memory\n";
+        processesInfo << "\n";
 
         DIR* dir = opendir("/proc");
         if (!dir) {
@@ -362,12 +369,14 @@ public:
                     if (statusFile.is_open()) {
                         std::string line;
                         std::string name;
-                        std::string threads;
+                        std::string threads = "0"; // Initialize threads with "0"
                         std::string state;
                         unsigned long vsize = 0;   // memoria virtual
                         long rss = 0;              // memoria fisica
 
                         while (std::getline(statusFile, line)) {
+                            line = replaceTabsWithSpaces(line);
+
                             if (line.find("Name:") == 0) {
                                 name = line.substr(line.find(":") + 2);
                             }
@@ -386,9 +395,10 @@ public:
                             }
                         }
                         processesInfo << pid << "\t" << name << "\t" << state << "\t" 
-                        << threads << "\t" << vsize << " KB\t" << rss << " KB\n";
+                                    << threads << "\t" << vsize << "\t" << rss << "\n";
                         statusFile.close();
                     }
+
                 }
             }
         }
