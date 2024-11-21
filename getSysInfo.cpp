@@ -88,11 +88,11 @@ public:
         static std::string info;
         info.clear();
         
-        // le as estatísticas de uso da cpu em /proc/stat
+        // le as estatisticas de uso da cpu em /proc/stat
         std::ifstream statFile("/proc/stat");
         std::string line;
         if (statFile.is_open()) {
-            std::getline(statFile, line);  // le a primeira linha (estatísticas da cpu)
+            std::getline(statFile, line);  // le a primeira linha (estatisticas da cpu)
             statFile.close();
             
             // analisa as estatisticas da cpu a partir da linha
@@ -165,7 +165,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a temperatura da CPU
+    // funcao para obter a temperatura da cpu
     const char* getCpuTemperature() {
         static std::string info;
         info.clear();
@@ -237,7 +237,7 @@ public:
             std::string line;
             unsigned long long totalTransmitted = 0;
 
-            // Skip the first two lines
+            // pula as duas primeiras linhas
             std::getline(netFile, line);
             std::getline(netFile, line);
 
@@ -245,6 +245,7 @@ public:
                 std::istringstream ss(line);
                 std::string iface;
                 unsigned long long transmitted;
+                // avanca 9 campos para obter o valor de bytes transmitidos
                 for (int i = 0; i < 9; ++i) ss >> transmitted;
                 totalTransmitted += transmitted;
             }
@@ -261,7 +262,7 @@ public:
                 info = netInfo.str();
             }
 
-            // Update previous values
+            // atualiza os valores anteriores
             prevTotalTransmitted = totalTransmitted;
             prevTime = currentTime;
         }
@@ -312,7 +313,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter informacoes sobre a CPU
+    // funcao para obter informacoes sobre a cpu
     const char* getCpuInfo() {
         static std::string info;
         info.clear();
@@ -322,7 +323,7 @@ public:
             std::ostringstream cpuInfo;
             while (std::getline(cpuFile, line)) {
                 if (line.find("cpu MHz") != std::string::npos) {
-                    // Localiza a posição do ":" e pega o valor após ela
+                    // localiza a posicao do ":" e pega o valor apos ela
                     size_t pos = line.find(":");
                     if (pos != std::string::npos) {
                         std::string value = line.substr(pos + 1);
@@ -345,7 +346,7 @@ public:
 
         DIR* dir = opendir("/proc");
         if (!dir) {
-            perror("Não foi possível abrir /proc");
+            perror("nao foi possivel abrir /proc");
             return "";
         }
 
@@ -377,10 +378,10 @@ public:
                                 threads = line.substr(line.find(":") + 2);
                             }
                             if (line.find("VmSize:") == 0) {
-                                vsize = std::stoul(line.substr(line.find(":") + 2)) / 1024; // Em KB
+                                vsize = std::stoul(line.substr(line.find(":") + 2)) / 1024; // em kb
                             }
                             if (line.find("VmRSS:") == 0) {
-                                rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // Em KB
+                                rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // em kb
                                 break;
                             }
                         }
@@ -442,7 +443,7 @@ extern "C" {
     }
 
     const char* getCpuTemperature(SystemInfo* systemInfo) {
-    return systemInfo->getCpuTemperature();
+        return systemInfo->getCpuTemperature();
     }
 
     const char* getNetworkReceiveRate(SystemInfo* systemInfo) {

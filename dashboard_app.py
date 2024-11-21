@@ -27,12 +27,12 @@ class DashboardApp:
         self.disk_usage_history = []
         self.network_receive_history = []
         self.network_transmit_history = []
-        self.num_cores = 8 #TODO: get from system_info
-        self.cpu_core_usage_histories = [[] for _ in range(self.num_cores)]
         self.cpu_core_lines = []
         self.max_history_length = 50
 
         self.sys_info = SystemInfo()
+        self.num_cores = len(self.sys_info.get_cpu_usage_per_core())
+        self.cpu_core_usage_histories = [[] for _ in range(self.num_cores)]
 
         self.label_vars = {}
         self.labels = {}
@@ -53,7 +53,7 @@ class DashboardApp:
     def initialize_cpu_core_histories(self):
         core_usages = self.sys_info.get_cpu_usage_per_core()
         for core_index, usage in enumerate(core_usages):
-            # preencher com um valor neutro
+            # inicializa o historico de uso de cada nucleo com zeros
             self.cpu_core_usage_histories[core_index] = [0] * self.max_history_length
 
     def initialize_memory_histories(self):
@@ -216,7 +216,7 @@ class DashboardApp:
         xdata = range(len(self.cpu_core_usage_histories[0]))
         for core_index, line in enumerate(self.cpu_core_lines):
             ydata = self.cpu_core_usage_histories[core_index]
-            # Calcular a média de maneira adaptativa
+            # calcular a media usando os ultimos 10 valores
             avg_ydata = [sum(ydata[max(0, i - 9):i + 1]) / min(10, i + 1) for i in range(len(ydata))]            
             line.set_data(xdata[-len(avg_ydata):], avg_ydata)
         self.cpu_ax.set_xlim(0, self.max_history_length)
@@ -301,7 +301,7 @@ class DashboardApp:
             return
         # filtrar processos ativos
         active_processes = [p for p in processes if p['status'] == 'running']
-        # atualizar rotulos
+        # atualizar rotulos com informacoes dos processos
         for pid, process in enumerate(active_processes):
             text = f"PID: {process['pid']} | Name: {process['name']} | Status: {process['status']} | Threads: {process['threads']} | Memory: {process['memory']}"
             if pid in self.process_labels:
@@ -315,6 +315,7 @@ class DashboardApp:
 
     def show_processes(self):
         if self.process_window is not None and self.process_window.winfo_exists():
+            # se a janela ja existe, traz para frente
             self.process_window.lift()
             return
         self.process_window = tk.Toplevel(self.root)
@@ -336,9 +337,10 @@ class DashboardApp:
 
     def parse_processes_info(self, processes_info):
         processes = []
-        lines = processes_info.strip().split('\n')[1:]  # Ignora a linha de cabeçalho
+        lines = processes_info.strip().split('\n')[1:]  # ignora a linha de cabecalho
         for line in lines:
-            parts = re.split(r'\s{2,}', line.strip())  # Divide onde há dois ou mais espaços
+            # divide a linha em partes usando espacos duplos como separador
+            parts = re.split(r'\s{2,}', line.strip())
             if len(parts) >= 5:
                 process = {
                     'pid': parts[0],
