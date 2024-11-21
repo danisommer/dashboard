@@ -322,6 +322,8 @@ class DashboardApp:
         elif invert_sort:  # apenas inverte a ordem se clicou na mesma coluna
             self.sort_reverse = not self.sort_reverse
 
+        self.process_tree.yview_moveto(0)
+
         # extrai os dados da coluna para ordenar
         data = []
         for child in self.process_tree.get_children(''):
