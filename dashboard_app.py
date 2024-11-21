@@ -11,6 +11,7 @@ import threading
 cycle_time = 1000  # milissegundos
 cycle_time_graphs = 500  # milissegundos
 cycle_time_processes = 2000  # milissegundos
+last_selected_process = None
 processes_thread = 5
 last_thread_num = 0
 
@@ -331,7 +332,6 @@ class DashboardApp:
                 val = int(val)
             elif col in ["Virtual Memory", "Physical Memory"]:  
                 try:
-                    # Remove "KB" if present and convert to float
                     val = float(val.replace(" KB", ""))
                 except ValueError:
                     val = 0
@@ -357,26 +357,25 @@ class DashboardApp:
         if self.process_window_running:
             self.root.after(cycle_time_processes, self.update_processes)  
 
-    def update_process_labels(self, processes):
-        lines = processes.strip().split('\n')
-        for line in lines:
-            parts = line.split('\t')
-            if len(parts) >= 6:
-                pid = parts[0]
-                name = parts[1]
-                state = parts[2]
-                threads = parts[3]
-                vsize = parts[4]
-                rss = parts[5]
-                self.process_window.children['!treeview'].insert("", "end", values=(pid, name, state, threads, vsize, rss))
-    
     def refresh_process_list(self, processes):
+        global last_selected_process
+
         if not hasattr(self, 'process_tree') or not self.process_tree.winfo_exists():
             return
-        # limpar a lista atual
+
+        # salve a posicao vertical do scrollbar
+        treeview_yview = self.process_tree.yview()
+
+        # salve o ultimo processo selecionado
+        selected_item = self.process_tree.selection()
+        if selected_item:
+            last_selected_process = self.process_tree.item(selected_item[0], 'values')[0]
+
+        # limpa a lista de processos
         for item in self.process_tree.get_children():
             self.process_tree.delete(item)
-        # inserir os novos dados
+
+        #insere os novos processos
         lines = processes.strip().split('\n')
         for line in lines:
             parts = line.split('\t')
@@ -385,13 +384,24 @@ class DashboardApp:
                 name = parts[1]
                 state = parts[2]
                 threads = parts[3]
-                # Format VSize and RSS with KB
                 vsize = f"{parts[4]} KB" if parts[4] else "0 KB"
                 rss = f"{parts[5]} KB" if parts[5] else "0 KB"
                 self.process_tree.insert("", "end", values=(pid, name, state, threads, vsize, rss))
-        # reordenar a lista
+
+        # reseleciona o ultimo processo selecionado
+        if last_selected_process:
+            for item in self.process_tree.get_children():
+                if self.process_tree.item(item, 'values')[0] == last_selected_process:
+                    self.process_tree.selection_set(item)
+                    self.process_tree.see(item)
+                    break
+
+        # reordena a lista de processos
         if self.sort_column:
             self.sort_processes(self.sort_column, invert_sort=False)
+
+        # restaura a posicao vertical do scrollbar
+        self.process_tree.yview_moveto(treeview_yview[0])
 
     def stop(self):
         self.executor.shutdown(wait=False)
