@@ -17,7 +17,15 @@ class SystemInfo:
             "CPU Temperature": lib.getCpuTemperature,
             "Load Average": lib.getLoadAverage,
             "Process Count": lib.getProcessCount,
-            "Thread Count": lib.getThreadCount
+            "Thread Count": lib.getThreadCount,
+
+            "Network Receive Rate": lib.getNetworkReceiveRate,
+            "Network Transmit Rate": lib.getNetworkTransmitRate,
+            "Total Memory": lib.getTotalMemory,
+            "Free Memory": lib.getFreeMemory,
+            "Swap Usage": lib.getSwapUsage,
+            "Used Disk": lib.getUsedDisk,
+            "Free Disk": lib.getFreeDisk
         }
 
         lib.getTotalMemory.restype = c_char_p
@@ -86,6 +94,14 @@ class SystemInfo:
         lib.getFreeDisk.restype = c_char_p
         return float(lib.getFreeDisk(self.obj).decode('utf-8'))
     
+    def get_disk_read(self):
+        lib.getDiskRead.restype = c_char_p
+        return float(lib.getDiskRead(self.obj).decode('utf-8'))
+    
+    def get_disk_write(self):
+        lib.getDiskWrite.restype = c_char_p
+        return float(lib.getDiskWrite(self.obj).decode('utf-8'))
+
     def kill_process(self, pid):
         lib.killProcess.restype = c_char_p
         return lib.killProcess(self.obj, pid)

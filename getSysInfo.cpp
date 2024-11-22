@@ -1,15 +1,24 @@
 #include <iostream>
-#include <sstream>
-#include <sys/sysinfo.h>
+
+// para manipulacao de arquivos
 #include <fstream>
+#include <sstream>
+
+// para manipulacao de strings
 #include <string>
 #include <cstring>
+#include <iomanip>
+
+// para manipulacao de diretorios
 #include <dirent.h>
 #include <unistd.h>
+
+// informacoes do sistema
+#include <sys/sysinfo.h>
 #include <sys/statvfs.h>
-#include <fstream>
-#include <sstream>
 #include <sys/utsname.h>
+
+// para manipulacao de processos
 #include <chrono>
 #include <algorithm>
 #include <signal.h>
@@ -23,8 +32,9 @@ public:
         info.clear();
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
+            unsigned long long total_memory = sys_info.totalram * sys_info.mem_unit; 
             std::ostringstream memoryInfo;
-            memoryInfo << sys_info.totalram / (1024 * 1024);
+            memoryInfo << total_memory / (1024 * 1024); // convertido para MB
             info = memoryInfo.str();
         }
         return info.c_str();
@@ -36,8 +46,9 @@ public:
         info.clear();
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
+            unsigned long long free_memory = sys_info.freeram * sys_info.mem_unit; 
             std::ostringstream memoryInfo;
-            memoryInfo << sys_info.freeram / (1024 * 1024);
+            memoryInfo << free_memory / (1024 * 1024); // convertido para MB
             info = memoryInfo.str();
         }
         return info.c_str();
@@ -49,9 +60,15 @@ public:
         info.clear();
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
+            long uptime_seconds = sys_info.uptime;
+            long hours = uptime_seconds / 3600;
+            long minutes = (uptime_seconds % 3600) / 60;
+            long seconds = uptime_seconds % 60;
+
             std::ostringstream uptimeInfo;
-            uptimeInfo << sys_info.uptime / 3600 << " hours, "
-                       << (sys_info.uptime % 3600) / 60 << " minutes\n";
+            uptimeInfo << hours << " hours, "
+                    << minutes << " minutes, "
+                    << seconds << " seconds";
             info = uptimeInfo.str();
         }
         return info.c_str();
@@ -64,9 +81,10 @@ public:
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream loadInfo;
-            loadInfo << "1 min: " << sys_info.loads[0] / 65536.0 << ", "
-                     << "5 min: " << sys_info.loads[1] / 65536.0 << ", "
-                     << "15 min: " << sys_info.loads[2] / 65536.0;
+            loadInfo << "Load Average: "
+                    << "1 min: " << sys_info.loads[0] / 65536.0 << ", "
+                    << "5 min: " << sys_info.loads[1] / 65536.0 << ", "
+                    << "15 min: " << sys_info.loads[2] / 65536.0;
             info = loadInfo.str();
         }
         return info.c_str();
@@ -79,12 +97,13 @@ public:
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
             std::ostringstream procInfo;
-            procInfo << sys_info.procs << " processes\n";
+            procInfo << sys_info.procs << " processes";
             info = procInfo.str();
         }
         return info.c_str();
     }
 
+    // TODO: pendente
     // funcao para calcular e retornar o uso da cpu em percentual
     const char* getCpuUsage() {
         static std::string info;
@@ -115,6 +134,8 @@ public:
         return info.c_str();
     }
 
+    // TODO: pendente
+    // funcao para obter o numero de threads
     const char* getThreadCount() {
         static std::string info;
         info.clear();
@@ -143,27 +164,131 @@ public:
         info.clear();
         struct statvfs stat;
         if (statvfs("/", &stat) == 0) {
-            unsigned long total = stat.f_blocks * stat.f_frsize / (1024 * 1024);
-            unsigned long free = stat.f_bfree * stat.f_frsize / (1024 * 1024);
+            // total de blocos e o tamanho de cada bloco
+            unsigned long total = stat.f_blocks * stat.f_frsize;
+            unsigned long free = stat.f_bfree * stat.f_frsize;
             unsigned long used = total - free;
+
+            double usedDisk = used / (1024.0 * 1024.0); 
             std::ostringstream diskInfo;
-            diskInfo << used;
+            usedDisk /= 1024.0;
+            diskInfo << usedDisk;
+            
             info = diskInfo.str();
         }
         return info.c_str();
     }
 
-    const char* getFreeDisk() {
+    const char* getFreeDisk() { 
         static std::string info;
         info.clear();
         struct statvfs stat;
         if (statvfs("/", &stat) == 0) {
-            unsigned long total = stat.f_blocks * stat.f_frsize / (1024 * 1024);
-            unsigned long free = stat.f_bfree * stat.f_frsize / (1024 * 1024);
+            // total de blocos e o tamanho de cada bloco
+            unsigned long total = stat.f_blocks * stat.f_frsize;
+            unsigned long free = stat.f_bfree * stat.f_frsize;
+
+            double freeDisk = free / (1024.0 * 1024.0); 
             std::ostringstream diskInfo;
-            diskInfo << free;
+            freeDisk /= 1024.0;
+            diskInfo << freeDisk;
+            
             info = diskInfo.str();
+        } else {
+            info = "Error";
         }
+        return info.c_str();
+    }
+
+    // TODO: pendente 
+    // funcao para obter o uso do disco em leitura
+    const char* getDiskRead() {
+        static std::string info;
+        info.clear();
+
+        static unsigned long long prevRead = 0;
+        unsigned long long currRead = 0;
+
+        // le as estatisticas do disco a partir de /proc/diskstats
+        std::ifstream statFile("/proc/diskstats");
+        std::string line;
+        if (statFile.is_open()) {
+            while (std::getline(statFile, line)) {
+                std::istringstream ss(line);
+                std::string device;
+                unsigned long long readSectors;
+
+                // encontra a linha que corresponde ao dispositivo de disco desejado
+                ss >> device; // nome do dispositivo
+                for (int i = 0; i < 3; ++i) ss.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // ignora campos desnecessarios
+                ss >> readSectors; // leitura de setores
+
+                // Para o calculo de uso de leitura, vamos apenas considerar o primeiro dispositivo (geralmente o principal)
+                if (device == "sda" || device == "nvme0n1") {  // considera o dispositivo principal (ajuste conforme necessario)
+                    currRead = readSectors;
+                    break;
+                }
+            }
+            statFile.close();
+        }
+
+        // calcula a diferenca de leitura de setores
+        unsigned long long readDiff = currRead - prevRead;
+        prevRead = currRead;
+
+        // converte para MB (assumindo que cada setor tem 512 bytes)
+        double readMB = readDiff * 512.0 / (1024 * 1024); // convertendo para MB
+        std::ostringstream readInfo;
+        readInfo.precision(2);
+        readInfo << std::fixed << readMB; // MB
+        info = readInfo.str();
+
+        return info.c_str();
+    }
+
+    //  TODO: pendente 
+    // funcao para obter o uso do disco em escrita
+    const char* getDiskWrite() {
+        static std::string info;
+        info.clear();
+
+        static unsigned long long prevWrite = 0;
+        unsigned long long currWrite = 0;
+
+        // le as estatisticas do disco a partir de /proc/diskstats
+        std::ifstream statFile("/proc/diskstats");
+        std::string line;
+        if (statFile.is_open()) {
+            while (std::getline(statFile, line)) {
+                std::istringstream ss(line);
+                std::string device;
+                unsigned long long writeSectors;
+
+                // encontra a linha que corresponde ao dispositivo de disco desejado
+                ss >> device; // nome do dispositivo
+                for (int i = 0; i < 7; ++i) ss.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // ignora campos desnecessarios
+                ss >> writeSectors; // escrita de setores
+
+                // Para o calculo de uso de escrita, vamos apenas considerar o primeiro dispositivo (geralmente o principal)
+                if (device == "sda" || device == "nvme0n1") {  // considera o dispositivo principal (ajuste conforme necessario)
+                    currWrite = writeSectors;
+                    break;
+                }
+            }
+            statFile.close();
+        }
+
+        // calcula a diferenca de escrita de setores
+        unsigned long long writeDiff = currWrite - prevWrite;
+        prevWrite = currWrite;
+
+        // converte para MB (assumindo que cada setor tem 512 bytes)
+        double writeMB = writeDiff * 512.0 / (1024 * 1024); // convertendo para MB
+        std::ostringstream writeInfo;
+        writeInfo.precision(2);
+        writeInfo << std::fixed << writeMB; // MB
+        info = writeInfo.str();
+
         return info.c_str();
     }
 
@@ -171,15 +296,20 @@ public:
     const char* getCpuTemperature() {
         static std::string info;
         info.clear();
+
+        // tenta abrir o arquivo que contem a temperatura da cpu
         std::ifstream tempFile("/sys/class/thermal/thermal_zone0/temp");
         if (tempFile.is_open()) {
             int temp;
-            tempFile >> temp;
+            tempFile >> temp; // le a temperatura em miligrados
             tempFile.close();
+
             std::ostringstream tempInfo;
-            tempInfo << temp / 1000.0 << " °C";
+            tempInfo.precision(2); 
+            tempInfo << std::fixed << temp / 1000.0 << " °C";
             info = tempInfo.str();
         }
+
         return info.c_str();
     }
 
@@ -215,7 +345,8 @@ public:
                 double receiveRate = (totalReceived - prevTotalReceived) / elapsedSeconds.count();
 
                 std::ostringstream netInfo;
-                netInfo << receiveRate / 1024;
+                netInfo.precision(2);
+                netInfo << std::fixed << (receiveRate / 1024);
                 info = netInfo.str();
             }
 
@@ -239,7 +370,6 @@ public:
             std::string line;
             unsigned long long totalTransmitted = 0;
 
-            // pula as duas primeiras linhas
             std::getline(netFile, line);
             std::getline(netFile, line);
 
@@ -247,7 +377,7 @@ public:
                 std::istringstream ss(line);
                 std::string iface;
                 unsigned long long transmitted;
-                // avanca 9 campos para obter o valor de bytes transmitidos
+                // avanca 9 campos para chegar ao valor de transmissoes
                 for (int i = 0; i < 9; ++i) ss >> transmitted;
                 totalTransmitted += transmitted;
             }
@@ -260,13 +390,15 @@ public:
                 double transmitRate = (totalTransmitted - prevTotalTransmitted) / elapsedSeconds.count();
 
                 std::ostringstream netInfo;
-                netInfo << transmitRate / 1024;
+                netInfo.precision(2);
+                netInfo << std::fixed << (transmitRate / 1024);
                 info = netInfo.str();
             }
 
-            // atualiza os valores anteriores
             prevTotalTransmitted = totalTransmitted;
             prevTime = currentTime;
+        } else {
+            info = "Unable to read network stats";
         }
 
         return info.c_str();
@@ -276,16 +408,19 @@ public:
     const char* getSwapUsage() {
         static std::string info;
         info.clear();
+
         struct sysinfo sys_info;
         if (sysinfo(&sys_info) == 0) {
-            double totalSwap = sys_info.totalswap / (1024.0 * 1024.0);
-            double freeSwap = sys_info.freeswap / (1024.0 * 1024.0);
+            double totalSwap = sys_info.totalswap / (1024.0 * 1024.0);  // convertendo para MB
+            double freeSwap = sys_info.freeswap / (1024.0 * 1024.0);    // convertendo para MB
             double usedSwap = totalSwap - freeSwap;
             double swapUsagePercentage = (usedSwap / totalSwap) * 100.0;
+
             std::ostringstream swapInfo;
-            swapInfo << swapUsagePercentage;
+            swapInfo << std::fixed << std::setprecision(2) << swapUsagePercentage;
             info = swapInfo.str();
         }
+
         return info.c_str();
     }
 
@@ -315,7 +450,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter informacoes sobre a cpu
+    // funcao para obter uso de cada core da cpu
     const char* getCpuInfo() {
         static std::string info;
         info.clear();
@@ -370,7 +505,7 @@ public:
                     if (statusFile.is_open()) {
                         std::string line;
                         std::string name;
-                        std::string threads = "0"; // Initialize threads with "0"
+                        std::string threads = "0"; // initialize threads with "0"
                         std::string state;
                         unsigned long vsize = 0;   // memoria virtual
                         long rss = 0;              // memoria fisica
@@ -459,6 +594,14 @@ extern "C" {
 
     const char* getFreeDisk(SystemInfo* systemInfo) {
         return systemInfo->getFreeDisk();
+    }
+
+    const char* getDiskRead(SystemInfo* systemInfo) {
+        return systemInfo->getDiskRead();
+    }
+
+    const char* getDiskWrite(SystemInfo* systemInfo) {
+        return systemInfo->getDiskWrite();
     }
 
     const char* getCpuTemperature(SystemInfo* systemInfo) {

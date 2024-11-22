@@ -26,7 +26,8 @@ class DashboardApp:
         self.cpu_usage_history = []
         self.mem_usage_history = []
         self.swap_usage_history = []
-        self.disk_usage_history = []
+        self.disk_read_history = []
+        self.disk_write_history = []
         self.network_receive_history = []
         self.network_transmit_history = []
         self.cpu_core_lines = []
@@ -69,8 +70,10 @@ class DashboardApp:
         self.network_receive_history = [receive_rate] * self.max_history_length
         self.network_transmit_history = [transmit_rate] * self.max_history_length
     def initialize_disk_histories(self):
-        disk_usage = self.sys_info.get_used_disk()
-        self.disk_usage_history = [disk_usage] * self.max_history_length
+        disk_read = self.sys_info.get_disk_read()
+        disk_write = self.sys_info.get_disk_write()
+        self.disk_read_history = [disk_read] * self.max_history_length
+        self.disk_write_history = [disk_write] * self.max_history_length
 
     def setup_widgets(self): 
         # configuracao principal da grade
@@ -122,7 +125,8 @@ class DashboardApp:
         self.swap_line, = self.mem_ax.plot([], [], color="blue", label="Swap Usage")
         self.net_receive_line, = self.net_ax.plot([], [], color="lightgreen", label="Download")
         self.net_transmit_line, = self.net_ax.plot([], [], color="orange", label="Upload")
-        self.disk_line, = self.disk_ax.plot([], [], color="purple", label="Disk Usage")
+        self.disk_read_line, = self.disk_ax.plot([], [], color="purple", label="Disk Read")
+        self.disk_write_line, = self.disk_ax.plot([], [], color="red", label="Disk Write")
 
         self.cpu_ax.set_ylim(0, 100)
         self.cpu_ax.set_title("CPU Usage (MHz)")
@@ -137,7 +141,7 @@ class DashboardApp:
         self.net_ax.set_xticks([])
         self.net_ax.legend()
 
-        self.disk_ax.set_title("Disk Usage (%)")
+        self.disk_ax.set_title("Disk Usage (MB/s)")
         self.disk_ax.set_ylim(0, 100)
         self.disk_ax.set_xticks([])
         self.disk_ax.legend()
@@ -194,11 +198,13 @@ class DashboardApp:
                     self.network_transmit_history.pop(0)
                 self.refresh_network_graph()
             elif item[0] == 'disk':
-                disk_usage = item[1]
-                if not hasattr(self, 'disk_usage_history'):
-                    self.disk_usage_history = []
-                self.disk_usage_history.append(disk_usage)
-                self.disk_usage_history = self.disk_usage_history[-self.max_history_length:]
+                disk_read, disk_write = item[1], item[2]
+                self.disk_read_history.append(disk_read)
+                self.disk_write_history.append(disk_write)
+                if len(self.disk_read_history) > self.max_history_length:
+                    self.disk_read_history.pop(0)
+                if len(self.disk_write_history) > self.max_history_length:
+                    self.disk_write_history.pop(0)
                 self.refresh_disk_graph()
             elif item[0] == 'processes_update':
                         processes = item[1]
@@ -263,17 +269,20 @@ class DashboardApp:
     def update_disk_graph(self):
         # computacao pesada em uma thread separada
         def worker():
-            used_disk = self.sys_info.get_used_disk()
-            free_disk = self.sys_info.get_free_disk()
-            total_disk = used_disk + free_disk
-            disk_usage = (used_disk / total_disk) * 100 if total_disk > 0 else 0
-            self.result_queue.put(('disk', disk_usage))
+            disk_read = self.sys_info.get_disk_read()
+            disk_write = self.sys_info.get_disk_write()
+            self.result_queue.put(('disk', disk_read, disk_write))
         threading.Thread(target=worker).start()
         self.root.after(cycle_time_graphs, self.update_disk_graph)
     def refresh_disk_graph(self):
-        xdata = range(len(self.disk_usage_history))
-        self.disk_line.set_data(xdata, self.disk_usage_history)
+        xdata = range(len(self.disk_read_history))
+        self.disk_read_line.set_data(xdata, self.disk_read_history)
+        self.disk_write_line.set_data(xdata, self.disk_write_history)
         self.disk_ax.set_xlim(0, self.max_history_length)
+        max_disk_usage = max(max(self.disk_read_history), max(self.disk_write_history)) * 1.1
+        if max_disk_usage == 0:
+            max_disk_usage = 1  # set a minimum limit for y
+        self.disk_ax.set_ylim(0, max_disk_usage + 1e-9)  # add a small epsilon value
         self.canvas.draw_idle()
 
     def show_processes(self):
