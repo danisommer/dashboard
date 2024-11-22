@@ -1,5 +1,9 @@
 #include <iostream>
 
+// para manipulacao de usuarios
+#include <pwd.h>   // Para getpwuid()
+#include <unistd.h> // Para getuid()
+
 // para manipulacao de arquivos
 #include <fstream>
 #include <sstream>
@@ -131,6 +135,38 @@ public:
             usageInfo << cpuUsage;
             info = usageInfo.str();
         }
+        return info.c_str();
+    }
+
+    // funcao para obter o percentual de tempo ocioso da cpu
+    const char* getCpuIdlePercentage() {
+        static std::string info;
+        info.clear();
+
+        std::ifstream statFile("/proc/stat");
+        std::string line;
+        
+        if (statFile.is_open()) {
+            std::getline(statFile, line);  // le a primeira linha com as estatísticas da cpu
+            statFile.close();
+
+            // analisa a linha
+            unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
+            std::istringstream ss(line);
+            ss >> line >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
+
+            // calcula o tempo total da cpu
+            unsigned long long total = user + nice + system + idle + iowait + irq + softirq + steal;
+
+            // percentual de tempo ocioso
+            double idlePercentage = (double)idle / total * 100.0;
+
+            // armazena a saida
+            std::ostringstream idleInfo;
+            idleInfo << idlePercentage << "%";
+            info = idleInfo.str();
+        }
+
         return info.c_str();
     }
 
@@ -489,7 +525,7 @@ public:
 
         DIR* dir = opendir("/proc");
         if (!dir) {
-            perror("nao foi possivel abrir /proc");
+            perror("Nao foi possível abrir /proc");
             return "";
         }
 
@@ -505,10 +541,11 @@ public:
                     if (statusFile.is_open()) {
                         std::string line;
                         std::string name;
-                        std::string threads = "0"; // initialize threads with "0"
+                        std::string threads = "0"; // inicializa threads com "0"
                         std::string state;
-                        unsigned long vsize = 0;   // memoria virtual
-                        long rss = 0;              // memoria fisica
+                        unsigned long vsize = 0;   // memória virtual
+                        long rss = 0;              // memória física
+                        std::string userName;
 
                         while (std::getline(statusFile, line)) {
                             line = replaceTabsWithSpaces(line);
@@ -523,18 +560,28 @@ public:
                                 threads = line.substr(line.find(":") + 2);
                             }
                             if (line.find("VmSize:") == 0) {
-                                vsize = std::stoul(line.substr(line.find(":") + 2)) / 1024; // em kb
+                                vsize = std::stoul(line.substr(line.find(":") + 2)) / 1024; // em KB
                             }
                             if (line.find("VmRSS:") == 0) {
-                                rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // em kb
-                                break;
+                                rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // em KB
+                            }
+                            if (line.find("Uid:") == 0) {
+                                // Obtém o UID do processo
+                                std::string uid = line.substr(line.find(":") + 2);
+                                uid = replaceTabsWithSpaces(uid); // Remove espaços extras
+                                struct passwd *pw = getpwuid(std::stoi(uid));
+                                if (pw != NULL) {
+                                    userName = pw->pw_name; // Nome do usuário
+                                }
+                                else {
+                                    userName = "Unknown"; // Se não encontrar o usuário
+                                }
                             }
                         }
-                        processesInfo << pid << "\t" << name << "\t" << state << "\t" 
+                        processesInfo << pid << "\t" << name << "\t" << userName << "\t" << state << "\t" 
                                     << threads << "\t" << vsize << "\t" << rss << "\n";
                         statusFile.close();
                     }
-
                 }
             }
         }
@@ -542,7 +589,6 @@ public:
         
         info = processesInfo.str();
         return info.c_str();
-
     }
 
     const int killProcess(int pid) {
@@ -551,6 +597,64 @@ public:
         } else {
             return 0; // sucesso
         }
+    }
+
+    // funcao para obter informacoes especificas de um processo
+    const char* getSpecificProcess(int pid) {
+        static std::string info;
+        info.clear();
+
+        std::ostringstream processInfo;
+
+        std::string processDir = "/proc/" + std::to_string(pid);
+        std::string statusPath = processDir + "/status";
+
+        std::ifstream statusFile(statusPath);
+        if (statusFile.is_open()) {
+            std::string line;
+            processInfo << "Process ID: " << pid << "\n";
+
+            // Read process status information
+            while (std::getline(statusFile, line)) {
+                processInfo << line << "\n";
+            }
+            statusFile.close();
+
+            // Read thread information
+            std::string taskDir = processDir + "/task/";
+            DIR* dir = opendir(taskDir.c_str());
+            if (dir) {
+                struct dirent* entry;
+                processInfo << "\nThreads Information:\n";
+                while ((entry = readdir(dir)) != NULL) {
+                    if (entry->d_type == DT_DIR) {
+                        std::string tidStr = entry->d_name;
+                        if (std::all_of(tidStr.begin(), tidStr.end(), ::isdigit)) {
+                            int tid = std::stoi(tidStr);
+                            std::string threadStatusPath = taskDir + tidStr + "/status";
+                            std::ifstream threadStatusFile(threadStatusPath);
+                            if (threadStatusFile.is_open()) {
+                                processInfo << "Thread ID: " << tid << "\n";
+                                while (std::getline(threadStatusFile, line)) {
+                                    processInfo << line << "\n";
+                                }
+                                threadStatusFile.close();
+                                processInfo << "\n";
+                            }
+                        }
+                    }
+                }
+                closedir(dir);
+            } else {
+                processInfo << "Unable to open task directory for thread information.\n";
+            }
+
+            info = processInfo.str();
+        } else {
+            info = "Unable to open status file for process.\n";
+        }
+
+        return info.c_str();
     }
 
 };
@@ -582,6 +686,10 @@ extern "C" {
 
     const char* getCpuUsage(SystemInfo* systemInfo) {
         return systemInfo->getCpuUsage();
+    }
+
+    const char* getCpuIdlePercentage(SystemInfo* systemInfo) {
+        return systemInfo->getCpuIdlePercentage();
     }
 
     const char* getThreadCount(SystemInfo* systemInfo) {
@@ -638,5 +746,9 @@ extern "C" {
 
     const int killProcess(SystemInfo* systemInfo, int pid) {
         return systemInfo->killProcess(pid);
+    }
+
+    const char* getSpecificProcess(SystemInfo* systemInfo, int pid) {
+        return systemInfo->getSpecificProcess(pid);
     }
 }

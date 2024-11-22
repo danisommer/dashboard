@@ -14,6 +14,7 @@ class SystemInfo:
             "Architecture Info": lib.getArchitectureInfo,
             "Uptime": lib.getUptime,
             "CPU Usage": lib.getCpuUsage,
+            "CPU Idle Percentage": lib.getCpuIdlePercentage,
             "CPU Temperature": lib.getCpuTemperature,
             "Load Average": lib.getLoadAverage,
             "Process Count": lib.getProcessCount,
@@ -105,3 +106,7 @@ class SystemInfo:
     def kill_process(self, pid):
         lib.killProcess.restype = c_char_p
         return lib.killProcess(self.obj, pid)
+    
+    def get_specific_process(self, pid):
+        lib.getSpecificProcess.restype = c_char_p
+        return lib.getSpecificProcess(self.obj, pid)

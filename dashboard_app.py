@@ -1,4 +1,3 @@
-import re
 import tkinter as tk
 from tkinter import ttk
 from concurrent.futures import ThreadPoolExecutor
@@ -298,10 +297,10 @@ class DashboardApp:
         self.process_window.grid_rowconfigure(0, weight=1)
         self.process_window.grid_columnconfigure(0, weight=1)
         
-        columns = ("PID", "Name", "State", "Threads", "Physical Memory", "Virtual Memory") 
+        columns = ("PID", "Name", "Uid", "State", "Threads", "Physical Memory", "Virtual Memory") 
         self.process_tree = ttk.Treeview(self.process_window, columns=columns, show="headings")
         
-        column_widths = {"PID": 60, "Name": 200, "State": 80, "Threads": 60, "Physical Memory": 100, "Virtual Memory": 100}
+        column_widths = {"PID": 60, "Name": 200, "Uid": 100, "State": 80, "Threads": 60, "Physical Memory": 100, "Virtual Memory": 100}
         for col in columns:
             self.process_tree.heading(col, text=col, command=lambda _col=col: self.sort_processes(_col))
             self.process_tree.column(col, anchor="center", minwidth=column_widths[col], width=column_widths[col], stretch=True)
@@ -317,6 +316,8 @@ class DashboardApp:
         self.process_window.grid_columnconfigure(1, weight=0)
 
         self.process_window.protocol("WM_DELETE_WINDOW", self.close_process_window)
+
+        self.process_tree.bind("<Double-1>", self.show_process_details)
 
         self.process_window_running = True
         self.update_processes()  # comeca a atualizar a lista
@@ -413,18 +414,19 @@ class DashboardApp:
         for item in self.process_tree.get_children():
             self.process_tree.delete(item)
 
-        #insere os novos processos
+        # insere os novos processos
         lines = processes.strip().split('\n')
         for line in lines:
             parts = line.split('\t')
-            if len(parts) >= 6:
+            if len(parts) >= 7:
                 pid = parts[0]
                 name = parts[1]
-                state = parts[2]
-                threads = parts[3]
-                vsize = f"{parts[4]} KB" if parts[4] else "0 KB"
-                rss = f"{parts[5]} KB" if parts[5] else "0 KB"
-                self.process_tree.insert("", "end", values=(pid, name, state, threads, vsize, rss))
+                uid = parts[2]
+                state = parts[3]
+                threads = parts[4]
+                vsize = f"{parts[5]} KB" if parts[5] else "0 KB"
+                rss = f"{parts[6]} KB" if parts[6] else "0 KB"
+                self.process_tree.insert("", "end", values=(pid, name, uid, state, threads, vsize, rss))
 
         # reseleciona o ultimo processo selecionado
         if last_selected_process:
@@ -434,13 +436,132 @@ class DashboardApp:
                     self.process_tree.see(item)
                     break
 
-        # reordena a lista de processos
-        if self.sort_column:
-            self.sort_processes(self.sort_column, invert_sort=False)
+    def show_process_details(self, event):
+        selected_item = self.process_tree.selection()
+        if selected_item:
+            pid = self.process_tree.item(selected_item[0], 'values')[0]
+            try:
+                pid = int(pid)
+                self.display_process_details(pid)
+            except ValueError:
+                tk.messagebox.showerror("Error", "Invalid PID")
 
-        # restaura a posicao vertical do scrollbar
-        self.process_tree.yview_moveto(treeview_yview[0])
+    def display_process_details(self, pid):
+        detail_window = tk.Toplevel(self.root)
+        detail_window.title(f"Process Details - PID {pid}")
+        detail_window.geometry("800x600")
+        detail_window.configure(bg='#f0f0f0')
+        
+        # Main frame with padding
+        main_frame = ttk.Frame(detail_window, padding="10")
+        main_frame.pack(fill="both", expand=True)
 
+        # Title frame
+        title_frame = ttk.Frame(main_frame)
+        title_frame.pack(fill="x", pady=(0, 10))
+        
+        title_label = ttk.Label(
+            title_frame, 
+            text=f"Process Details (PID: {pid})",
+            font=("Helvetica", 14, "bold")
+        )
+        title_label.pack(side="left")
+
+        # Create notebook for tabbed interface
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill="both", expand=True)
+
+        # Basic info tab
+        basic_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(basic_frame, text="Basic Info")
+
+        # Resources tab
+        resources_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(resources_frame, text="Resources")
+
+        # File info tab
+        files_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(files_frame, text="Files & Maps")
+
+        # Create text widgets for each tab with different tags for formatting
+        basic_text = tk.Text(basic_frame, wrap="word", height=10, font=("Consolas", 10))
+        basic_text.pack(fill="both", expand=True)
+        basic_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
+        basic_text.tag_configure("value", font=("Consolas", 10))
+
+        resources_text = tk.Text(resources_frame, wrap="word", height=10, font=("Consolas", 10))
+        resources_text.pack(fill="both", expand=True)
+        resources_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
+        resources_text.tag_configure("value", font=("Consolas", 10))
+
+        files_text = tk.Text(files_frame, wrap="word", height=10, font=("Consolas", 10))
+        files_text.pack(fill="both", expand=True)
+        files_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
+        files_text.tag_configure("value", font=("Consolas", 10))
+
+        # Add scrollbars
+        for text_widget in [basic_text, resources_text, files_text]:
+            scrollbar = ttk.Scrollbar(text_widget.master, orient="vertical", command=text_widget.yview)
+            scrollbar.pack(side="right", fill="y")
+            text_widget.configure(yscrollcommand=scrollbar.set)
+            text_widget.config(state="disabled")
+
+        def format_section(text_widget, title, content):
+            text_widget.config(state="normal")
+            text_widget.insert("end", f"{title}\n", "header")
+            text_widget.insert("end", f"{content}\n\n", "value")
+            text_widget.config(state="disabled")
+
+        def update_process_info():
+            def worker():
+                process_info = self.sys_info.get_specific_process(pid)
+                if isinstance(process_info, bytes):
+                    process_info = process_info.decode()
+                self.result_queue.put(('process_detail', process_info))
+            threading.Thread(target=worker).start()
+            if detail_window.winfo_exists():
+                detail_window.after(1000, update_process_info)
+
+        def process_detail_queue():
+            while not self.result_queue.empty():
+                item = self.result_queue.get()
+                if item[0] == 'process_detail':
+                    process_info = item[1]
+                    sections = process_info.split('\n\n')
+                    
+                    # Clear all text widgets
+                    for widget in [basic_text, resources_text, files_text]:
+                        widget.config(state="normal")
+                        widget.delete("1.0", "end")
+                    
+                    # Format and distribute information to appropriate tabs
+                    for section in sections:
+                        if section.strip():
+                            if "Status" in section or "Name" in section or "State" in section:
+                                format_section(basic_text, "Process Information", section)
+                            elif "CPU" in section or "Memory" in section:
+                                format_section(resources_text, "Resource Usage", section)
+                            elif "FD" in section or "Maps" in section:
+                                format_section(files_text, "File Information", section)
+                    
+                    # Disable text widgets after updating
+                    for widget in [basic_text, resources_text, files_text]:
+                        widget.config(state="disabled")
+                        
+            if detail_window.winfo_exists():
+                detail_window.after(100, process_detail_queue)
+
+        # Add a refresh button
+        refresh_button = ttk.Button(
+            title_frame,
+            text="Refresh",
+            command=lambda: update_process_info()
+        )
+        refresh_button.pack(side="right", padx=5)
+
+        update_process_info()
+        process_detail_queue()
+        
     def stop(self):
         self.executor.shutdown(wait=False)
         self.root.quit()
