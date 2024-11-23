@@ -610,38 +610,39 @@ public:
 
         std::ifstream statusFile(statusPath);
         if (statusFile.is_open()) {
-            processInfo << "\n";
+            // Update section title
+            processInfo << "Title 1\n";
             processInfo << "Process ID (PID): " << pid << "\n";
 
             std::string line;
-            std::string name, state, vmRSS, vmSize, threadsCount, cpuUsage;
+            std::string name, state, vmRSS, vmSize, threadsCount;
             while (std::getline(statusFile, line)) {
-                // Capturar informações específicas
+                // Capture specific information
                 if (line.find("Name:") == 0) name = line;
                 else if (line.find("State:") == 0) state = line;
                 else if (line.find("VmRSS:") == 0) vmRSS = line;
                 else if (line.find("VmSize:") == 0) vmSize = line;
                 else if (line.find("Threads:") == 0) threadsCount = line;
-                
-                // Adicionar outras linhas relevantes
+
+                // Add other relevant lines
                 processInfo << line << "\n";
             }
             statusFile.close();
 
-            // Adicionar informações organizadas
-            processInfo << "\n";
+            // Add organized information
+            processInfo << "\nTitle 2\n";
             if (!name.empty()) processInfo << name << "\n";
             if (!state.empty()) processInfo << state << "\n";
             if (!vmRSS.empty()) processInfo << "Resident Memory (RAM): " << vmRSS << "\n";
             if (!vmSize.empty()) processInfo << "Virtual Memory: " << vmSize << "\n";
             if (!threadsCount.empty()) processInfo << threadsCount << "\n";
 
-            // Informações sobre threads
+            // Threads information
             std::string taskDir = processDir + "/task/";
             DIR* dir = opendir(taskDir.c_str());
             if (dir) {
                 struct dirent* entry;
-                processInfo << "\n";
+                processInfo << "\nTitle 3\n";
 
                 while ((entry = readdir(dir)) != NULL) {
                     if (entry->d_type == DT_DIR) {

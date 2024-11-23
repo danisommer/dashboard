@@ -498,13 +498,13 @@ class DashboardApp:
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
-        # recursos
-        resources_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(resources_frame, text="Resources")
-
         # infos arquivos
         files_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(files_frame, text="Files & Maps")
+        notebook.add(files_frame, text="Threads")
+
+        # recursos
+        resources_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(resources_frame, text="More info")
 
         # crie widgets de texto para exibir as informacoes
         basic_text = tk.Text(basic_frame, wrap="word", height=10, font=("Consolas", 10))
@@ -517,13 +517,13 @@ class DashboardApp:
         resources_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
         resources_text.tag_configure("value", font=("Consolas", 10))
 
-        files_text = tk.Text(files_frame, wrap="word", height=10, font=("Consolas", 10))
-        files_text.pack(fill="both", expand=True)
-        files_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
-        files_text.tag_configure("value", font=("Consolas", 10))
+        threads_text = tk.Text(files_frame, wrap="word", height=10, font=("Consolas", 10))
+        threads_text.pack(fill="both", expand=True)
+        threads_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
+        threads_text.tag_configure("value", font=("Consolas", 10))
 
         # scrollbar
-        for text_widget in [basic_text, resources_text, files_text]:
+        for text_widget in [basic_text, resources_text, threads_text]:
             scrollbar = ttk.Scrollbar(text_widget.master, orient="vertical", command=text_widget.yview)
             scrollbar.pack(side="right", fill="y")
             text_widget.configure(yscrollcommand=scrollbar.set)
@@ -551,7 +551,7 @@ class DashboardApp:
 
         def process_detail_queue():
             if not detail_window.winfo_exists():
-                return  # Encerra se a janela foi fechada
+                return  # Exit if the window has been closed
 
             while not self.result_queue.empty():
                 item = self.result_queue.get()
@@ -559,26 +559,33 @@ class DashboardApp:
                     process_info = item[1]
                     sections = process_info.split('\n\n')
 
-                    for widget in [basic_text, resources_text, files_text]:
+                    for widget in [basic_text, resources_text, threads_text]:
                         widget.config(state="normal")
                         widget.delete("1.0", "end")
                         widget.config(state="disabled")
 
-                    # Preenche com novo conteúdo
+                    # Fill with new content
                     for section in sections:
                         if section.strip():
-                            if "Status" in section or "Name" in section or "State" in section:
-                                format_section(basic_text, "Process Information", section)
-                            elif "CPU" in section or "Memory" in section:
-                                format_section(resources_text, "Resource Usage", section)
-                            elif "FD" in section or "Maps" in section:
-                                format_section(files_text, "File Information", section)
+                            if "Title 1" in section:
+                                # Remove o "Title 1" do conteúdo
+                                content = section.replace("Title 1\n", "")
+                                format_section(basic_text, "Process Information", content)
+                            elif "Title 2" in section:
+                                content = section.replace("Title 2\n", "")
+                                format_section(resources_text, "Key Details", content)
+                            elif "Title 3" in section:
+                                content = section.replace("Title 3\n", "")
+                                format_section(threads_text, "Threads Information", content)
+                            else:
+                                # Seção não reconhecida
+                                format_section(resources_text, "Other Information", section)
 
-                    # Restaura o estado dos widgets de texto
-                    for widget in [basic_text, resources_text, files_text]:
+                    # Restore the state of text widgets
+                    for widget in [basic_text, resources_text, threads_text]:
                         widget.config(state="disabled")
 
-            # Continue verificando a fila
+            # Continue checking the queue
             detail_window.after(100, process_detail_queue)
 
         # adciona botao de refresh
