@@ -18,15 +18,15 @@ class SystemInfo:
             "CPU Temperature": lib.getCpuTemperature,
             "Load Average": lib.getLoadAverage,
             "Process Count": lib.getProcessCount,
-            "Thread Count": lib.getThreadCount,
+            "Thread Count": lib.getThreadCount
 
-            "Network Receive Rate": lib.getNetworkReceiveRate,
-            "Network Transmit Rate": lib.getNetworkTransmitRate,
-            "Total Memory": lib.getTotalMemory,
-            "Free Memory": lib.getFreeMemory,
-            "Swap Usage": lib.getSwapUsage,
-            "Used Disk": lib.getUsedDisk,
-            "Free Disk": lib.getFreeDisk
+            # "Network Receive Rate": lib.getNetworkReceiveRate,
+            # "Network Transmit Rate": lib.getNetworkTransmitRate,
+            # "Total Memory": lib.getTotalMemory,
+            # "Free Memory": lib.getFreeMemory,
+            # "Swap Usage": lib.getSwapUsage,
+            # "Used Disk": lib.getUsedDisk,
+            # "Free Disk": lib.getFreeDisk
         }
 
         lib.getTotalMemory.restype = c_char_p
@@ -109,4 +109,4 @@ class SystemInfo:
     
     def get_specific_process(self, pid):
         lib.getSpecificProcess.restype = c_char_p
-        return lib.getSpecificProcess(self.obj, pid)
+        return lib.getSpecificProcess(self.obj, pid).decode('utf-8')

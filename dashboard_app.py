@@ -280,8 +280,8 @@ class DashboardApp:
         self.disk_ax.set_xlim(0, self.max_history_length)
         max_disk_usage = max(max(self.disk_read_history), max(self.disk_write_history)) * 1.1
         if max_disk_usage == 0:
-            max_disk_usage = 1  # set a minimum limit for y
-        self.disk_ax.set_ylim(0, max_disk_usage + 1e-9)  # add a small epsilon value
+            max_disk_usage = 1  # limite minimo para y
+        self.disk_ax.set_ylim(0, max_disk_usage + 1e-9)  
         self.canvas.draw_idle()
 
     def show_processes(self):
@@ -353,36 +353,42 @@ class DashboardApp:
                 tk.messagebox.showerror("Error", "Invalid PID")
             
     def sort_processes(self, col, invert_sort=True):
-        if col != self.sort_column:  # se clicou em uma coluna diferente, ordena normalmente
+        if col != self.sort_column:  # nova coluna, ordenacao padrao
             self.sort_reverse = False
-            self.sort_column = col
-        elif invert_sort:  # apenas inverte a ordem se clicou na mesma coluna
+        elif invert_sort: # mesma coluna, inverte a ordenacao
             self.sort_reverse = not self.sort_reverse
+        self.sort_column = col
 
-        self.process_tree.yview_moveto(0)
+        # salva a posicao da barra de rolagem
+        current_view = self.process_tree.yview()
 
-        # extrai os dados da coluna para ordenar
+        # extrai os dados da arvore
         data = []
         for child in self.process_tree.get_children(''):
-            val = self.process_tree.set(child, col)
-            
-            #converte para o tipo correto para ordenacao
-            if col in ["PID", "Threads"]:
-                val = int(val)
-            elif col in ["Virtual Memory", "Physical Memory"]:  
+            values = self.process_tree.item(child)['values']
+            if col == "PID":
+                key = int(values[0])
+            elif col == "Threads":
+                key = int(values[4])
+            elif col in ["Physical Memory", "Virtual Memory"]:
                 try:
-                    val = float(val.replace(" KB", ""))
+                    key = float(values[5 if col == "Virtual Memory" else 6].replace(" KB", ""))
                 except ValueError:
-                    val = 0
+                    key = 0.0
+            else:
+                key = str(values[{"Name": 1, "Uid": 2, "State": 3}[col]]).lower()
             
-            data.append((val, child))
-        
+            data.append((key, child))
+
         # ordena os dados
         data.sort(key=lambda x: x[0], reverse=self.sort_reverse)
-        
-        # reorganiza as linhas na arvore
-        for index, (val, child) in enumerate(data):
-            self.process_tree.move(child, '', index)
+
+        # reordena os itens na arvore
+        for idx, (_, child) in enumerate(data):
+            self.process_tree.move(child, '', idx)
+
+        # restaura a posicao da barra de rolagem
+        self.process_tree.yview_moveto(current_view[0])
 
     def close_process_window(self):
         self.process_window_running = False
@@ -402,10 +408,12 @@ class DashboardApp:
         if not hasattr(self, 'process_tree') or not self.process_tree.winfo_exists():
             return
 
-        # salve a posicao vertical do scrollbar
+        # salva a posicao da barra de rolagem
         treeview_yview = self.process_tree.yview()
+        sort_column = self.sort_column
+        sort_reverse = self.sort_reverse
 
-        # salve o ultimo processo selecionado
+        # salva o processo selecionado
         selected_item = self.process_tree.selection()
         if selected_item:
             last_selected_process = self.process_tree.item(selected_item[0], 'values')[0]
@@ -414,7 +422,7 @@ class DashboardApp:
         for item in self.process_tree.get_children():
             self.process_tree.delete(item)
 
-        # insere os novos processos
+        # insere os processos na lista
         lines = processes.strip().split('\n')
         for line in lines:
             parts = line.split('\t')
@@ -428,13 +436,22 @@ class DashboardApp:
                 rss = f"{parts[6]} KB" if parts[6] else "0 KB"
                 self.process_tree.insert("", "end", values=(pid, name, uid, state, threads, vsize, rss))
 
-        # reseleciona o ultimo processo selecionado
+        # restaura a ordenacao
+        if sort_column:
+            self.sort_processes(sort_column, invert_sort=False)
+            if sort_reverse:
+                self.sort_processes(sort_column, invert_sort=True)
+
+        # restaura o processo selecionado
         if last_selected_process:
             for item in self.process_tree.get_children():
                 if self.process_tree.item(item, 'values')[0] == last_selected_process:
                     self.process_tree.selection_set(item)
                     self.process_tree.see(item)
                     break
+
+        # restaura a posicao da barra de rolagem
+        self.process_tree.yview_moveto(treeview_yview[0])
 
     def show_process_details(self, event):
         selected_item = self.process_tree.selection()
@@ -467,23 +484,23 @@ class DashboardApp:
         )
         title_label.pack(side="left")
 
-        # Create notebook for tabbed interface
+        # criar um notebook para exibir diferentes secoes de informacoes
         notebook = ttk.Notebook(main_frame)
         notebook.pack(fill="both", expand=True)
 
-        # Basic info tab
+        # infos basicas
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
-        # Resources tab
+        # recursos
         resources_frame = ttk.Frame(notebook, padding="10")
         notebook.add(resources_frame, text="Resources")
 
-        # File info tab
+        # infos arquivos
         files_frame = ttk.Frame(notebook, padding="10")
         notebook.add(files_frame, text="Files & Maps")
 
-        # Create text widgets for each tab with different tags for formatting
+        # crie widgets de texto para exibir as informacoes
         basic_text = tk.Text(basic_frame, wrap="word", height=10, font=("Consolas", 10))
         basic_text.pack(fill="both", expand=True)
         basic_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
@@ -499,7 +516,7 @@ class DashboardApp:
         files_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
         files_text.tag_configure("value", font=("Consolas", 10))
 
-        # Add scrollbars
+        # scrollbar
         for text_widget in [basic_text, resources_text, files_text]:
             scrollbar = ttk.Scrollbar(text_widget.master, orient="vertical", command=text_widget.yview)
             scrollbar.pack(side="right", fill="y")
@@ -515,8 +532,6 @@ class DashboardApp:
         def update_process_info():
             def worker():
                 process_info = self.sys_info.get_specific_process(pid)
-                if isinstance(process_info, bytes):
-                    process_info = process_info.decode()
                 self.result_queue.put(('process_detail', process_info))
             threading.Thread(target=worker).start()
             if detail_window.winfo_exists():
@@ -529,12 +544,19 @@ class DashboardApp:
                     process_info = item[1]
                     sections = process_info.split('\n\n')
                     
-                    # Clear all text widgets
+                    # salve as posições da barra de rolagem
+                    scroll_positions = {
+                        'basic': basic_text.yview()[0],
+                        'resources': resources_text.yview()[0],
+                        'files': files_text.yview()[0]
+                    }
+                    
+                    # limpe os widgets
                     for widget in [basic_text, resources_text, files_text]:
                         widget.config(state="normal")
                         widget.delete("1.0", "end")
                     
-                    # Format and distribute information to appropriate tabs
+                    # formate e exiba cada seção
                     for section in sections:
                         if section.strip():
                             if "Status" in section or "Name" in section or "State" in section:
@@ -544,14 +566,19 @@ class DashboardApp:
                             elif "FD" in section or "Maps" in section:
                                 format_section(files_text, "File Information", section)
                     
-                    # Disable text widgets after updating
-                    for widget in [basic_text, resources_text, files_text]:
+                    # desabilite os widgets e use yview_moveto para restaurar a posição da barra de rolagem
+                    for widget, pos in zip([basic_text, resources_text, files_text], 
+                                        [scroll_positions['basic'], 
+                                        scroll_positions['resources'], 
+                                        scroll_positions['files']]):
                         widget.config(state="disabled")
+                        # use depois de idle para garantir que o widget esteja pronto
+                        widget.after_idle(lambda w=widget, p=pos: w.yview_moveto(p))
                         
             if detail_window.winfo_exists():
                 detail_window.after(100, process_detail_queue)
 
-        # Add a refresh button
+        # adciona botao de refresh
         refresh_button = ttk.Button(
             title_frame,
             text="Refresh",
