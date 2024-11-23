@@ -605,27 +605,44 @@ public:
         info.clear();
 
         std::ostringstream processInfo;
-
         std::string processDir = "/proc/" + std::to_string(pid);
         std::string statusPath = processDir + "/status";
 
         std::ifstream statusFile(statusPath);
         if (statusFile.is_open()) {
-            std::string line;
-            processInfo << "Process ID: " << pid << "\n";
+            processInfo << "\n";
+            processInfo << "Process ID (PID): " << pid << "\n";
 
-            // Read process status information
+            std::string line;
+            std::string name, state, vmRSS, vmSize, threadsCount, cpuUsage;
             while (std::getline(statusFile, line)) {
+                // Capturar informações específicas
+                if (line.find("Name:") == 0) name = line;
+                else if (line.find("State:") == 0) state = line;
+                else if (line.find("VmRSS:") == 0) vmRSS = line;
+                else if (line.find("VmSize:") == 0) vmSize = line;
+                else if (line.find("Threads:") == 0) threadsCount = line;
+                
+                // Adicionar outras linhas relevantes
                 processInfo << line << "\n";
             }
             statusFile.close();
 
-            // Read thread information
+            // Adicionar informações organizadas
+            processInfo << "\n";
+            if (!name.empty()) processInfo << name << "\n";
+            if (!state.empty()) processInfo << state << "\n";
+            if (!vmRSS.empty()) processInfo << "Resident Memory (RAM): " << vmRSS << "\n";
+            if (!vmSize.empty()) processInfo << "Virtual Memory: " << vmSize << "\n";
+            if (!threadsCount.empty()) processInfo << threadsCount << "\n";
+
+            // Informações sobre threads
             std::string taskDir = processDir + "/task/";
             DIR* dir = opendir(taskDir.c_str());
             if (dir) {
                 struct dirent* entry;
-                processInfo << "\nThreads Information:\n";
+                processInfo << "\n";
+
                 while ((entry = readdir(dir)) != NULL) {
                     if (entry->d_type == DT_DIR) {
                         std::string tidStr = entry->d_name;
@@ -634,29 +651,24 @@ public:
                             std::string threadStatusPath = taskDir + tidStr + "/status";
                             std::ifstream threadStatusFile(threadStatusPath);
                             if (threadStatusFile.is_open()) {
-                                processInfo << "Thread ID: " << tid << "\n";
+                                processInfo << "Thread ID (TID): " << tid << "\n";
                                 while (std::getline(threadStatusFile, line)) {
-                                    processInfo << line << "\n";
+                                    if (line.find("State:") == 0 || line.find("VmRSS:") == 0 ||
+                                        line.find("Name:") == 0 || line.find("Priority:") == 0) {
+                                        processInfo << "  " << line << "\n";
+                                    }
                                 }
                                 threadStatusFile.close();
-                                processInfo << "\n";
                             }
                         }
                     }
                 }
                 closedir(dir);
-            } else {
-                processInfo << "Unable to open task directory for thread information.\n";
             }
-
-            info = processInfo.str();
-        } else {
-            info = "Unable to open status file for process.\n";
-        }
-
+        } 
+        info = processInfo.str();
         return info.c_str();
     }
-
 };
 
 extern "C" {

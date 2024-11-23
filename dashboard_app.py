@@ -317,7 +317,7 @@ class DashboardApp:
 
         self.process_window.protocol("WM_DELETE_WINDOW", self.close_process_window)
 
-        self.process_tree.bind("<Double-1>", self.show_process_details)
+        self.process_tree.bind("<Double-1>", self.on_treeview_double_click)
 
         self.process_window_running = True
         self.update_processes()  # comeca a atualizar a lista
@@ -353,16 +353,13 @@ class DashboardApp:
                 tk.messagebox.showerror("Error", "Invalid PID")
             
     def sort_processes(self, col, invert_sort=True):
-        if col != self.sort_column:  # nova coluna, ordenacao padrao
+        if col != self.sort_column:  # nova coluna, ordenação padrão
             self.sort_reverse = False
-        elif invert_sort: # mesma coluna, inverte a ordenacao
+        elif invert_sort:  # mesma coluna, inverte a ordenação
             self.sort_reverse = not self.sort_reverse
         self.sort_column = col
 
-        # salva a posicao da barra de rolagem
-        current_view = self.process_tree.yview()
-
-        # extrai os dados da arvore
+        # Extrai os dados da árvore
         data = []
         for child in self.process_tree.get_children(''):
             values = self.process_tree.item(child)['values']
@@ -370,25 +367,31 @@ class DashboardApp:
                 key = int(values[0])
             elif col == "Threads":
                 key = int(values[4])
-            elif col in ["Physical Memory", "Virtual Memory"]:
+            elif col == "Physical Memory":
                 try:
-                    key = float(values[5 if col == "Virtual Memory" else 6].replace(" KB", ""))
+                    key = float(values[5].replace(" KB", ""))
+                except ValueError:
+                    key = 0.0
+            elif col == "Virtual Memory":
+                try:
+                    key = float(values[6].replace(" KB", ""))
                 except ValueError:
                     key = 0.0
             else:
                 key = str(values[{"Name": 1, "Uid": 2, "State": 3}[col]]).lower()
-            
+
             data.append((key, child))
 
-        # ordena os dados
+        # Ordena os dados
         data.sort(key=lambda x: x[0], reverse=self.sort_reverse)
 
-        # reordena os itens na arvore
+        # Reordena os itens na árvore
         for idx, (_, child) in enumerate(data):
             self.process_tree.move(child, '', idx)
 
-        # restaura a posicao da barra de rolagem
-        self.process_tree.yview_moveto(current_view[0])
+        # Restaura a posição da barra de rolagem para o início
+        self.process_tree.yview_moveto(0.0)
+
 
     def close_process_window(self):
         self.process_window_running = False
@@ -408,41 +411,32 @@ class DashboardApp:
         if not hasattr(self, 'process_tree') or not self.process_tree.winfo_exists():
             return
 
-        # salva a posicao da barra de rolagem
+        # Salva a posicao da barra de rolagem e item selecionado
         treeview_yview = self.process_tree.yview()
         sort_column = self.sort_column
         sort_reverse = self.sort_reverse
 
-        # salva o processo selecionado
         selected_item = self.process_tree.selection()
+        last_selected_process = None
         if selected_item:
             last_selected_process = self.process_tree.item(selected_item[0], 'values')[0]
 
-        # limpa a lista de processos
-        for item in self.process_tree.get_children():
-            self.process_tree.delete(item)
-
-        # insere os processos na lista
+        # Limpa e insere os novos processos
+        self.process_tree.delete(*self.process_tree.get_children())
         lines = processes.strip().split('\n')
         for line in lines:
             parts = line.split('\t')
             if len(parts) >= 7:
-                pid = parts[0]
-                name = parts[1]
-                uid = parts[2]
-                state = parts[3]
-                threads = parts[4]
-                vsize = f"{parts[5]} KB" if parts[5] else "0 KB"
-                rss = f"{parts[6]} KB" if parts[6] else "0 KB"
+                pid, name, uid, state, threads, vsize, rss = parts
+                vsize = f"{vsize} KB" if vsize else "0 KB"
+                rss = f"{rss} KB" if rss else "0 KB"
                 self.process_tree.insert("", "end", values=(pid, name, uid, state, threads, vsize, rss))
 
-        # restaura a ordenacao
+        # Restaura a ordenacao
         if sort_column:
             self.sort_processes(sort_column, invert_sort=False)
-            if sort_reverse:
-                self.sort_processes(sort_column, invert_sort=True)
 
-        # restaura o processo selecionado
+        # Seleciona o processo anterior
         if last_selected_process:
             for item in self.process_tree.get_children():
                 if self.process_tree.item(item, 'values')[0] == last_selected_process:
@@ -450,8 +444,20 @@ class DashboardApp:
                     self.process_tree.see(item)
                     break
 
-        # restaura a posicao da barra de rolagem
+        # Restaura a posicao da barra de rolagem
         self.process_tree.yview_moveto(treeview_yview[0])
+
+    def on_treeview_double_click(self, event):
+        # Obtem a regiao do clique
+        region = self.process_tree.identify("region", event.x, event.y)
+        
+        if region == "heading":
+            # clique no cabecalho: nao abra detalhes do processo
+            return "break"
+        elif region == "cell":
+            # clique em uma celula: chame a funcao de detalhes
+            self.show_process_details(event)
+
 
     def show_process_details(self, event):
         selected_item = self.process_tree.selection()
@@ -529,34 +535,36 @@ class DashboardApp:
             text_widget.insert("end", f"{content}\n\n", "value")
             text_widget.config(state="disabled")
 
+        self.is_updating = False  # Variável de controle
+
         def update_process_info():
+            if self.is_updating:  # Se já estiver atualizando, ignora o novo disparo
+                return
+
+            self.is_updating = True
             def worker():
                 process_info = self.sys_info.get_specific_process(pid)
                 self.result_queue.put(('process_detail', process_info))
+                self.is_updating = False  # Atualização concluída
+
             threading.Thread(target=worker).start()
-            if detail_window.winfo_exists():
-                detail_window.after(1000, update_process_info)
 
         def process_detail_queue():
+            if not detail_window.winfo_exists():
+                return  # Encerra se a janela foi fechada
+
             while not self.result_queue.empty():
                 item = self.result_queue.get()
                 if item[0] == 'process_detail':
                     process_info = item[1]
                     sections = process_info.split('\n\n')
-                    
-                    # salve as posições da barra de rolagem
-                    scroll_positions = {
-                        'basic': basic_text.yview()[0],
-                        'resources': resources_text.yview()[0],
-                        'files': files_text.yview()[0]
-                    }
-                    
-                    # limpe os widgets
+
                     for widget in [basic_text, resources_text, files_text]:
                         widget.config(state="normal")
                         widget.delete("1.0", "end")
-                    
-                    # formate e exiba cada seção
+                        widget.config(state="disabled")
+
+                    # Preenche com novo conteúdo
                     for section in sections:
                         if section.strip():
                             if "Status" in section or "Name" in section or "State" in section:
@@ -565,18 +573,13 @@ class DashboardApp:
                                 format_section(resources_text, "Resource Usage", section)
                             elif "FD" in section or "Maps" in section:
                                 format_section(files_text, "File Information", section)
-                    
-                    # desabilite os widgets e use yview_moveto para restaurar a posição da barra de rolagem
-                    for widget, pos in zip([basic_text, resources_text, files_text], 
-                                        [scroll_positions['basic'], 
-                                        scroll_positions['resources'], 
-                                        scroll_positions['files']]):
+
+                    # Restaura o estado dos widgets de texto
+                    for widget in [basic_text, resources_text, files_text]:
                         widget.config(state="disabled")
-                        # use depois de idle para garantir que o widget esteja pronto
-                        widget.after_idle(lambda w=widget, p=pos: w.yview_moveto(p))
-                        
-            if detail_window.winfo_exists():
-                detail_window.after(100, process_detail_queue)
+
+            # Continue verificando a fila
+            detail_window.after(100, process_detail_queue)
 
         # adciona botao de refresh
         refresh_button = ttk.Button(
