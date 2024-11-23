@@ -521,10 +521,6 @@ class DashboardApp:
         )
         title_label.pack(side="left")
 
-        # scrollbar global
-        global_scrollbar = ttk.Scrollbar(main_frame, orient="vertical")
-        global_scrollbar.pack(side="right", fill="y")
-
         # notebook para secoes
         notebook = ttk.Notebook(main_frame)
         notebook.pack(side="left", fill="both", expand=True)
@@ -539,43 +535,45 @@ class DashboardApp:
         resources_frame = ttk.Frame(notebook, padding="10")
         notebook.add(resources_frame, text="More Info")
 
-        # cria widgets de texto para cada secao
-        text_widgets = {}
+        # cria Treeview widgets para cada secao
+        treeviews = {}
         for name, frame in zip(["basic", "threads", "resources"], [basic_frame, threads_frame, resources_frame]):
-            text_widget = tk.Text(frame, wrap="word", height=10, font=("Consolas", 10))
-            text_widget.pack(fill="both", expand=True)
-            text_widget.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
-            text_widget.tag_configure("value", font=("Consolas", 10))
-            text_widget.config(yscrollcommand=global_scrollbar.set, state="disabled")
-            text_widgets[name] = text_widget
+            treeview = ttk.Treeview(frame, columns=("Key", "Value"), show="headings")
+            treeview.heading("Key", text="Key")
+            treeview.heading("Value", text="Value")
+            treeview.column("Key", anchor="w", width=200)
+            treeview.column("Value", anchor="w", width=400)
+            treeview.pack(side="left", fill="both", expand=True)
+            
+            # adiciona scrollbar vertical
+            scrollbar = ttk.Scrollbar(frame, orient="vertical", command=treeview.yview)
+            treeview.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side="right", fill="y")
+            
+            treeviews[name] = treeview
 
-        global_scrollbar.config(command=lambda *args: [text.yview(*args) for text in text_widgets.values()])
+        def format_section(treeview, content):
+            lines = content.split('\n')
+            for line in lines:
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    treeview.insert("", "end", values=(key.strip(), value.strip()))
 
-        def format_section(text_widget, title, content):
-            text_widget.config(state="normal")
-            text_widget.insert("end", f"{title}\n", "header")
-            text_widget.insert("end", f"{content}\n\n", "value")
-            text_widget.config(state="disabled")
-
-        def update_text_widgets(process_info):
+        def update_treeviews(process_info):
             sections = process_info.split('\n\n')
 
-            for name, text_widget in text_widgets.items():
-                y_position = text_widget.yview()  # salva a posicao atual da rolagem
-                text_widget.config(state="normal")
-                text_widget.delete("1.0", "end")  # limpa o texto
+            for name, treeview in treeviews.items():
+                treeview.delete(*treeview.get_children())  # limpa a tabela
 
                 # adiciona conteudo conforme a secao
                 for section in sections:
                     if section.strip():
                         if name == "basic" and "Title 1" in section:
-                            format_section(text_widget, "Process Information", section.replace("Title 1\n", ""))
+                            format_section(treeview, section.replace("Title 1\n", ""))
                         elif name == "threads" and "Title 3" in section:
-                            format_section(text_widget, "Threads Information", section.replace("Title 3\n", ""))
+                            format_section(treeview, section.replace("Title 3\n", ""))
                         elif name == "resources" and "Title 2" in section:
-                            format_section(text_widget, "Key Details", section.replace("Title 2\n", ""))
-                text_widget.config(state="disabled")
-                text_widget.yview_moveto(y_position[0])  # restaura a posicao
+                            format_section(treeview, section.replace("Title 2\n", ""))
 
         def update_process_info():
             def worker():
@@ -599,7 +597,7 @@ class DashboardApp:
                     break
                 if item[0] == 'process_detail':
                     process_info = item[1]
-                    update_text_widgets(process_info)
+                    update_treeviews(process_info)
                 elif item[0] == 'error':
                     print(f"Erro ao buscar informacoes do processo: {item[1]}")
 
