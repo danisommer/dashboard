@@ -21,6 +21,7 @@ class DashboardApp:
         self.root.geometry("1200x590")
         self.root.resizable(True, True)
         self.root.minsize(800, 590)
+        self.heading_click_locked = False 
 
         self.cpu_usage_history = []
         self.mem_usage_history = []
@@ -158,11 +159,10 @@ class DashboardApp:
         self.root.after(cycle_time, self.update_disk_graph)
         
     def update_field(self, field):
-        # computacao pesada em uma thread separada
         def worker():
             value = self.sys_info.get_info(field)
             self.result_queue.put(('field', field, value))
-        threading.Thread(target=worker).start()
+        self.executor.submit(worker)
         self.root.after(cycle_time, self.update_field, field)
 
     def process_queue(self):
@@ -215,7 +215,7 @@ class DashboardApp:
         def worker():
             core_usages = self.sys_info.get_cpu_usage_per_core()
             self.result_queue.put(('cpu', core_usages))
-        threading.Thread(target=worker).start()
+        self.executor.submit(worker)
         self.root.after(cycle_time_graphs, self.update_cpu_graph)
     def refresh_cpu_graph(self):
         xdata = range(len(self.cpu_core_usage_histories[0]))
@@ -230,12 +230,11 @@ class DashboardApp:
 
     # funcoes de atualizacao e refresh dos graficos de memoria
     def update_memory_graph(self):
-        # computacao pesada em uma thread separada
         def worker():
             mem_usage = self.sys_info.get_memory_usage()
             swap_usage = self.sys_info.get_swap_usage()
             self.result_queue.put(('memory', mem_usage, swap_usage))
-        threading.Thread(target=worker).start()
+        self.executor.submit(worker)
         self.root.after(cycle_time_graphs, self.update_memory_graph)
     def refresh_memory_graph(self):
         xdata = range(len(self.mem_usage_history))
@@ -246,12 +245,11 @@ class DashboardApp:
 
     # funcoes de atualizacao e refresh dos graficos de rede
     def update_network_graph(self):
-        # computacao pesada em uma thread separada
         def worker():
             receive_rate = self.sys_info.get_network_receive_rate()
             transmit_rate = self.sys_info.get_network_transmit_rate()
             self.result_queue.put(('network', receive_rate, transmit_rate))
-        threading.Thread(target=worker).start()
+        self.executor.submit(worker)
         self.root.after(cycle_time_graphs, self.update_network_graph)
     def refresh_network_graph(self):
         xdata = range(len(self.network_receive_history))
@@ -266,12 +264,11 @@ class DashboardApp:
 
     # funcoes de atualizacao e refresh do grafico de disco
     def update_disk_graph(self):
-        # computacao pesada em uma thread separada
         def worker():
             disk_read = self.sys_info.get_disk_read()
             disk_write = self.sys_info.get_disk_write()
             self.result_queue.put(('disk', disk_read, disk_write))
-        threading.Thread(target=worker).start()
+        self.executor.submit(worker)
         self.root.after(cycle_time_graphs, self.update_disk_graph)
     def refresh_disk_graph(self):
         xdata = range(len(self.disk_read_history))
@@ -283,6 +280,27 @@ class DashboardApp:
             max_disk_usage = 1  # limite minimo para y
         self.disk_ax.set_ylim(0, max_disk_usage + 1e-9)  
         self.canvas.draw_idle()
+
+    def on_heading_click(self, event):
+        # verifica se o clique esta bloqueado
+        if self.heading_click_locked:
+            return "break"
+
+        # ativa o bloqueio de cliques e agenda a liberacao
+        self.heading_click_locked = True
+        self.root.after(300, self.unlock_heading_click)
+
+        # verifica se foi clicado no cabecalho
+        region = self.process_tree.identify_region(event.x, event.y)
+        if region == 'heading':
+            column = self.process_tree.identify_column(event.x)
+            col_index = int(column.replace('#', '')) - 1
+            col_name = self.process_tree["columns"][col_index]
+            self.sort_processes(col_name)
+            return "break"
+
+    def unlock_heading_click(self):
+        self.heading_click_locked = False
 
     def show_processes(self):
         if self.process_window is not None and tk.Toplevel.winfo_exists(self.process_window):
@@ -302,10 +320,11 @@ class DashboardApp:
         
         column_widths = {"PID": 60, "Name": 200, "Uid": 100, "State": 80, "Threads": 60, "Physical Memory": 100, "Virtual Memory": 100}
         for col in columns:
-            self.process_tree.heading(col, text=col, command=lambda _col=col: self.sort_processes(_col))
+            self.process_tree.heading(col, text=col)
             self.process_tree.column(col, anchor="center", minwidth=column_widths[col], width=column_widths[col], stretch=True)
         
         self.process_tree.grid(row=0, column=0, sticky="nsew")
+        self.process_tree.bind('<Button-1>', self.on_heading_click)
 
         scrollbar = ttk.Scrollbar(self.process_window, orient="vertical", command=self.process_tree.yview)
         self.process_tree.configure(yscrollcommand=scrollbar.set)
@@ -353,44 +372,42 @@ class DashboardApp:
                 tk.messagebox.showerror("Error", "Invalid PID")
             
     def sort_processes(self, col, invert_sort=True):
-        if col != self.sort_column:  # nova coluna, ordenação padrão
+        if col != self.sort_column:
             self.sort_reverse = False
-        elif invert_sort:  # mesma coluna, inverte a ordenação
+        elif invert_sort:
             self.sort_reverse = not self.sort_reverse
         self.sort_column = col
 
-        # Extrai os dados da árvore
-        data = []
-        for child in self.process_tree.get_children(''):
-            values = self.process_tree.item(child)['values']
-            if col == "PID":
-                key = int(values[0])
-            elif col == "Threads":
-                key = int(values[4])
-            elif col == "Physical Memory":
+        # obter todos os dados
+        data = [
+            (self.process_tree.item(child)['values'], child)
+            for child in self.process_tree.get_children('')
+        ]
+
+        # determinar chave de ordenacao
+        col_index = self.process_tree["columns"].index(col)
+        def sort_key(item):
+            value = item[0][col_index]
+            if col in ["PID", "Threads"]:
+                return int(value)
+            elif col in ["Physical Memory", "Virtual Memory"]:
                 try:
-                    key = float(values[5].replace(" KB", ""))
+                    return float(value.replace(" KB", ""))
                 except ValueError:
-                    key = 0.0
-            elif col == "Virtual Memory":
-                try:
-                    key = float(values[6].replace(" KB", ""))
-                except ValueError:
-                    key = 0.0
-            else:
-                key = str(values[{"Name": 1, "Uid": 2, "State": 3}[col]]).lower()
+                    return 0.0
+            return value.lower()
 
-            data.append((key, child))
+        # ordenar
+        data.sort(key=sort_key, reverse=self.sort_reverse)
 
-        # Ordena os dados
-        data.sort(key=lambda x: x[0], reverse=self.sort_reverse)
+        # recriar a arvore com os dados ordenados
+        self.process_tree.delete(*self.process_tree.get_children())
+        for values, _ in data:
+            self.process_tree.insert('', 'end', values=values)
 
-        # Reordena os itens na árvore
-        for idx, (_, child) in enumerate(data):
-            self.process_tree.move(child, '', idx)
-
-        # Restaura a posição da barra de rolagem para o início
+        # restaura a posicao da barra de rolagem
         self.process_tree.yview_moveto(0.0)
+
 
 
     def close_process_window(self):
@@ -401,9 +418,10 @@ class DashboardApp:
         def worker():
             processes_info = self.sys_info.get_processes_info()
             self.result_queue.put(('processes_update', processes_info))
-        threading.Thread(target=worker).start()
+
         if self.process_window_running:
-            self.root.after(cycle_time_processes, self.update_processes)  
+            threading.Thread(target=worker).start()
+            self.root.after(cycle_time_processes, self.update_processes) 
 
     def refresh_process_list(self, processes):
         global last_selected_process
@@ -411,7 +429,7 @@ class DashboardApp:
         if not hasattr(self, 'process_tree') or not self.process_tree.winfo_exists():
             return
 
-        # Salva a posicao da barra de rolagem e item selecionado
+        # salva a posicao da barra de rolagem e a ordenacao
         treeview_yview = self.process_tree.yview()
         sort_column = self.sort_column
         sort_reverse = self.sort_reverse
@@ -421,22 +439,40 @@ class DashboardApp:
         if selected_item:
             last_selected_process = self.process_tree.item(selected_item[0], 'values')[0]
 
-        # Limpa e insere os novos processos
-        self.process_tree.delete(*self.process_tree.get_children())
+        # mapeia os processos existentes
+        existing_items = {}
+        for item in self.process_tree.get_children():
+            pid = self.process_tree.item(item, 'values')[0]
+            existing_items[pid] = item
+
+        # processa novos processos
         lines = processes.strip().split('\n')
+        new_pids = set()
+
         for line in lines:
             parts = line.split('\t')
             if len(parts) >= 7:
                 pid, name, uid, state, threads, vsize, rss = parts
+                new_pids.add(pid)
                 vsize = f"{vsize} KB" if vsize else "0 KB"
                 rss = f"{rss} KB" if rss else "0 KB"
-                self.process_tree.insert("", "end", values=(pid, name, uid, state, threads, vsize, rss))
 
-        # Restaura a ordenacao
+                if pid in existing_items:
+                    # atualiza item existente
+                    self.process_tree.item(existing_items[pid], values=(pid, name, uid, state, threads, vsize, rss))
+                else:
+                    # insere novo item
+                    self.process_tree.insert("", "end", values=(pid, name, uid, state, threads, vsize, rss))
+
+        # remove processos que nao estao mais rodando
+        for pid in set(existing_items.keys()) - new_pids:
+            self.process_tree.delete(existing_items[pid])
+
+        # restaura a ordenacao
         if sort_column:
             self.sort_processes(sort_column, invert_sort=False)
 
-        # Seleciona o processo anterior
+        # reseleciona o processo que estava selecionado antes
         if last_selected_process:
             for item in self.process_tree.get_children():
                 if self.process_tree.item(item, 'values')[0] == last_selected_process:
@@ -444,18 +480,15 @@ class DashboardApp:
                     self.process_tree.see(item)
                     break
 
-        # Restaura a posicao da barra de rolagem
+        # restaura a posicao da barra de rolagem
         self.process_tree.yview_moveto(treeview_yview[0])
 
     def on_treeview_double_click(self, event):
-        # Obtem a regiao do clique
         region = self.process_tree.identify("region", event.x, event.y)
         
         if region == "heading":
-            # clique no cabecalho: nao abra detalhes do processo
             return "break"
         elif region == "cell":
-            # clique em uma celula: chame a funcao de detalhes
             self.show_process_details(event)
 
 
@@ -474,12 +507,10 @@ class DashboardApp:
         detail_window.title(f"Process Details - PID {pid}")
         detail_window.geometry("800x600")
         detail_window.configure(bg='#f0f0f0')
-        
-        # Main frame with padding
+
         main_frame = ttk.Frame(detail_window, padding="10")
         main_frame.pack(fill="both", expand=True)
 
-        # Title frame
         title_frame = ttk.Frame(main_frame)
         title_frame.pack(fill="x", pady=(0, 10))
         
@@ -490,39 +521,37 @@ class DashboardApp:
         )
         title_label.pack(side="left")
 
-        # criar um notebook para exibir diferentes secoes de informacoes
+        # notebook para secoes
         notebook = ttk.Notebook(main_frame)
         notebook.pack(fill="both", expand=True)
 
-        # infos basicas
+        # secoes
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
-        # infos arquivos
-        files_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(files_frame, text="Threads")
+        threads_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(threads_frame, text="Threads")
 
-        # recursos
         resources_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(resources_frame, text="More info")
+        notebook.add(resources_frame, text="More Info")
 
-        # crie widgets de texto para exibir as informacoes
+        # cria widgets de texto para cada secao
         basic_text = tk.Text(basic_frame, wrap="word", height=10, font=("Consolas", 10))
         basic_text.pack(fill="both", expand=True)
         basic_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
         basic_text.tag_configure("value", font=("Consolas", 10))
+
+        threads_text = tk.Text(threads_frame, wrap="word", height=10, font=("Consolas", 10))
+        threads_text.pack(fill="both", expand=True)
+        threads_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
+        threads_text.tag_configure("value", font=("Consolas", 10))
 
         resources_text = tk.Text(resources_frame, wrap="word", height=10, font=("Consolas", 10))
         resources_text.pack(fill="both", expand=True)
         resources_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
         resources_text.tag_configure("value", font=("Consolas", 10))
 
-        threads_text = tk.Text(files_frame, wrap="word", height=10, font=("Consolas", 10))
-        threads_text.pack(fill="both", expand=True)
-        threads_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
-        threads_text.tag_configure("value", font=("Consolas", 10))
-
-        # scrollbar
+        # scrollbars
         for text_widget in [basic_text, resources_text, threads_text]:
             scrollbar = ttk.Scrollbar(text_widget.master, orient="vertical", command=text_widget.yview)
             scrollbar.pack(side="right", fill="y")
@@ -535,69 +564,65 @@ class DashboardApp:
             text_widget.insert("end", f"{content}\n\n", "value")
             text_widget.config(state="disabled")
 
-        self.is_updating = False  # Variável de controle
+        def update_text_widgets(process_info):
+            sections = process_info.split('\n\n')
+
+            # salva a posicao da barra de rolagem
+            positions = [text_widget.yview() for text_widget in [basic_text, resources_text, threads_text]]
+
+            # limpa os widgets
+            for widget in [basic_text, resources_text, threads_text]:
+                widget.config(state="normal")
+                widget.delete("1.0", "end")
+                widget.config(state="disabled")
+
+            # preenche os widgets com as informacoes
+            for section in sections:
+                if section.strip():
+                    if "Title 1" in section:
+                        content = section.replace("Title 1\n", "")
+                        format_section(basic_text, "Process Information", content)
+                    elif "Title 2" in section:
+                        content = section.replace("Title 2\n", "")
+                        format_section(resources_text, "Key Details", content)
+                    elif "Title 3" in section:
+                        content = section.replace("Title 3\n", "")
+                        format_section(threads_text, "Threads Information", content)
+                    else:
+                        format_section(resources_text, "Other Information", section)
+
+            # restaura a posicao da barra de rolagem
+            for widget, position in zip([basic_text, resources_text, threads_text], positions):
+                widget.yview_moveto(position[0])
 
         def update_process_info():
-            if self.is_updating:  # Se já estiver atualizando, ignora o novo disparo
-                return
-
-            self.is_updating = True
             def worker():
                 process_info = self.sys_info.get_specific_process(pid)
                 self.result_queue.put(('process_detail', process_info))
-                self.is_updating = False  # Atualização concluída
-
+            
             threading.Thread(target=worker).start()
 
         def process_detail_queue():
             if not detail_window.winfo_exists():
-                return  # Exit if the window has been closed
+                return # sai se a janela for fechada
 
+            # processa a fila de resultados
             while not self.result_queue.empty():
-                item = self.result_queue.get()
+                try:
+                    item = self.result_queue.get_nowait()
+                except queue.Empty:
+                    pass
                 if item[0] == 'process_detail':
                     process_info = item[1]
-                    sections = process_info.split('\n\n')
+                    update_text_widgets(process_info)
 
-                    for widget in [basic_text, resources_text, threads_text]:
-                        widget.config(state="normal")
-                        widget.delete("1.0", "end")
-                        widget.config(state="disabled")
-
-                    # Fill with new content
-                    for section in sections:
-                        if section.strip():
-                            if "Title 1" in section:
-                                # Remove o "Title 1" do conteúdo
-                                content = section.replace("Title 1\n", "")
-                                format_section(basic_text, "Process Information", content)
-                            elif "Title 2" in section:
-                                content = section.replace("Title 2\n", "")
-                                format_section(resources_text, "Key Details", content)
-                            elif "Title 3" in section:
-                                content = section.replace("Title 3\n", "")
-                                format_section(threads_text, "Threads Information", content)
-                            else:
-                                # Seção não reconhecida
-                                format_section(resources_text, "Other Information", section)
-
-                    # Restore the state of text widgets
-                    for widget in [basic_text, resources_text, threads_text]:
-                        widget.config(state="disabled")
-
-            # Continue checking the queue
-            detail_window.after(100, process_detail_queue)
-
-        # adciona botao de refresh
-        refresh_button = ttk.Button(
-            title_frame,
-            text="Refresh",
-            command=lambda: update_process_info()
-        )
-        refresh_button.pack(side="right", padx=5)
+            # agendar a proxima atualizacao
+            detail_window.after(5000, update_process_info)  # atualiza a cada 5 segundos
+            detail_window.after(100, process_detail_queue)  # checa a fila a cada 100ms
 
         update_process_info()
         process_detail_queue()
+
         
     def stop(self):
         self.executor.shutdown(wait=False)
