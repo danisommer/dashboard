@@ -10,6 +10,7 @@ import threading
 cycle_time = 1000  # milissegundos
 cycle_time_graphs = 500  # milissegundos
 cycle_time_processes = 2000  # milissegundos
+cycle_time_process_detail = 5000  # milissegundos
 last_selected_process = None
 processes_thread = 5
 last_thread_num = 0
@@ -491,7 +492,6 @@ class DashboardApp:
         elif region == "cell":
             self.show_process_details(event)
 
-
     def show_process_details(self, event):
         selected_item = self.process_tree.selection()
         if selected_item:
@@ -513,19 +513,23 @@ class DashboardApp:
 
         title_frame = ttk.Frame(main_frame)
         title_frame.pack(fill="x", pady=(0, 10))
-        
+
         title_label = ttk.Label(
-            title_frame, 
+            title_frame,
             text=f"Process Details (PID: {pid})",
             font=("Helvetica", 14, "bold")
         )
         title_label.pack(side="left")
 
+        # scrollbar global
+        global_scrollbar = ttk.Scrollbar(main_frame, orient="vertical")
+        global_scrollbar.pack(side="right", fill="y")
+
         # notebook para secoes
         notebook = ttk.Notebook(main_frame)
-        notebook.pack(fill="both", expand=True)
+        notebook.pack(side="left", fill="both", expand=True)
 
-        # secoes
+        # frames para cada secao
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
@@ -536,27 +540,16 @@ class DashboardApp:
         notebook.add(resources_frame, text="More Info")
 
         # cria widgets de texto para cada secao
-        basic_text = tk.Text(basic_frame, wrap="word", height=10, font=("Consolas", 10))
-        basic_text.pack(fill="both", expand=True)
-        basic_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
-        basic_text.tag_configure("value", font=("Consolas", 10))
+        text_widgets = {}
+        for name, frame in zip(["basic", "threads", "resources"], [basic_frame, threads_frame, resources_frame]):
+            text_widget = tk.Text(frame, wrap="word", height=10, font=("Consolas", 10))
+            text_widget.pack(fill="both", expand=True)
+            text_widget.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
+            text_widget.tag_configure("value", font=("Consolas", 10))
+            text_widget.config(yscrollcommand=global_scrollbar.set, state="disabled")
+            text_widgets[name] = text_widget
 
-        threads_text = tk.Text(threads_frame, wrap="word", height=10, font=("Consolas", 10))
-        threads_text.pack(fill="both", expand=True)
-        threads_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
-        threads_text.tag_configure("value", font=("Consolas", 10))
-
-        resources_text = tk.Text(resources_frame, wrap="word", height=10, font=("Consolas", 10))
-        resources_text.pack(fill="both", expand=True)
-        resources_text.tag_configure("header", font=("Helvetica", 11, "bold"), foreground="#2c5282")
-        resources_text.tag_configure("value", font=("Consolas", 10))
-
-        # scrollbars
-        for text_widget in [basic_text, resources_text, threads_text]:
-            scrollbar = ttk.Scrollbar(text_widget.master, orient="vertical", command=text_widget.yview)
-            scrollbar.pack(side="right", fill="y")
-            text_widget.configure(yscrollcommand=scrollbar.set)
-            text_widget.config(state="disabled")
+        global_scrollbar.config(command=lambda *args: [text.yview(*args) for text in text_widgets.values()])
 
         def format_section(text_widget, title, content):
             text_widget.config(state="normal")
@@ -567,63 +560,56 @@ class DashboardApp:
         def update_text_widgets(process_info):
             sections = process_info.split('\n\n')
 
-            # salva a posicao da barra de rolagem
-            positions = [text_widget.yview() for text_widget in [basic_text, resources_text, threads_text]]
+            for name, text_widget in text_widgets.items():
+                y_position = text_widget.yview()  # salva a posicao atual da rolagem
+                text_widget.config(state="normal")
+                text_widget.delete("1.0", "end")  # limpa o texto
 
-            # limpa os widgets
-            for widget in [basic_text, resources_text, threads_text]:
-                widget.config(state="normal")
-                widget.delete("1.0", "end")
-                widget.config(state="disabled")
-
-            # preenche os widgets com as informacoes
-            for section in sections:
-                if section.strip():
-                    if "Title 1" in section:
-                        content = section.replace("Title 1\n", "")
-                        format_section(basic_text, "Process Information", content)
-                    elif "Title 2" in section:
-                        content = section.replace("Title 2\n", "")
-                        format_section(resources_text, "Key Details", content)
-                    elif "Title 3" in section:
-                        content = section.replace("Title 3\n", "")
-                        format_section(threads_text, "Threads Information", content)
-                    else:
-                        format_section(resources_text, "Other Information", section)
-
-            # restaura a posicao da barra de rolagem
-            for widget, position in zip([basic_text, resources_text, threads_text], positions):
-                widget.yview_moveto(position[0])
+                # adiciona conteudo conforme a secao
+                for section in sections:
+                    if section.strip():
+                        if name == "basic" and "Title 1" in section:
+                            format_section(text_widget, "Process Information", section.replace("Title 1\n", ""))
+                        elif name == "threads" and "Title 3" in section:
+                            format_section(text_widget, "Threads Information", section.replace("Title 3\n", ""))
+                        elif name == "resources" and "Title 2" in section:
+                            format_section(text_widget, "Key Details", section.replace("Title 2\n", ""))
+                text_widget.config(state="disabled")
+                text_widget.yview_moveto(y_position[0])  # restaura a posicao
 
         def update_process_info():
             def worker():
-                process_info = self.sys_info.get_specific_process(pid)
-                self.result_queue.put(('process_detail', process_info))
-            
-            threading.Thread(target=worker).start()
+                try:
+                    process_info = self.sys_info.get_specific_process(pid)
+                    self.result_queue.put(('process_detail', process_info))
+                except Exception as e:
+                    self.result_queue.put(('error', str(e)))
+
+            self.executor.submit(worker)
 
         def process_detail_queue():
             if not detail_window.winfo_exists():
-                return # sai se a janela for fechada
+                return  # sai se a janela foi fechada
 
             # processa a fila de resultados
             while not self.result_queue.empty():
                 try:
                     item = self.result_queue.get_nowait()
                 except queue.Empty:
-                    pass
+                    break
                 if item[0] == 'process_detail':
                     process_info = item[1]
                     update_text_widgets(process_info)
+                elif item[0] == 'error':
+                    print(f"Erro ao buscar informacoes do processo: {item[1]}")
 
             # agendar a proxima atualizacao
-            detail_window.after(5000, update_process_info)  # atualiza a cada 5 segundos
-            detail_window.after(100, process_detail_queue)  # checa a fila a cada 100ms
+            detail_window.after(cycle_time_process_detail, update_process_info)  # busca novos dados
+            detail_window.after(500, process_detail_queue)  # verifica a fila com intervalo maior
 
         update_process_info()
         process_detail_queue()
 
-        
     def stop(self):
         self.executor.shutdown(wait=False)
         self.root.quit()
