@@ -521,11 +521,11 @@ class DashboardApp:
         )
         title_label.pack(side="left")
 
-        # Notebook for sections
+        # notebook para as secoes
         notebook = ttk.Notebook(main_frame)
         notebook.pack(side="left", fill="both", expand=True)
 
-        # Frames for each section
+        # frame para cada secao
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
@@ -537,7 +537,7 @@ class DashboardApp:
 
         treeviews = {}
 
-        # Treeview for "basic" and "resources" sections
+        # treeviews para cada secao
         for name, frame in zip(["basic", "resources"], [basic_frame, resources_frame]):
             treeview = ttk.Treeview(frame, columns=("Key", "Value"), show="headings")
             treeview.heading("Key", text="Key")
@@ -552,7 +552,7 @@ class DashboardApp:
 
             treeviews[name] = treeview
 
-        # Treeview for "threads" section with new columns
+        # treeview para threads
         threads_columns = ("Thread ID (TID)", "Name", "State", "VmRSS")
         threads_treeview = ttk.Treeview(threads_frame, columns=threads_columns, show="headings")
         for col in threads_columns:

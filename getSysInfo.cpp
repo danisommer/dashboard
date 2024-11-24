@@ -543,8 +543,8 @@ public:
                         std::string name;
                         std::string threads = "0"; // inicializa threads com "0"
                         std::string state;
-                        unsigned long vsize = 0;   // memória virtual
-                        long rss = 0;              // memória física
+                        unsigned long vsize = 0;   // memoria virtual
+                        long rss = 0;              // memoria física
                         std::string userName;
 
                         while (std::getline(statusFile, line)) {
@@ -566,15 +566,15 @@ public:
                                 rss = std::stol(line.substr(line.find(":") + 2)) / 1024; // em KB
                             }
                             if (line.find("Uid:") == 0) {
-                                // Obtém o UID do processo
+                                // obtem o uid do processo
                                 std::string uid = line.substr(line.find(":") + 2);
-                                uid = replaceTabsWithSpaces(uid); // Remove espaços extras
+                                uid = replaceTabsWithSpaces(uid); // remove espacos extras
                                 struct passwd *pw = getpwuid(std::stoi(uid));
                                 if (pw != NULL) {
-                                    userName = pw->pw_name; // Nome do usuário
+                                    userName = pw->pw_name; // nome do usuario
                                 }
                                 else {
-                                    userName = "Unknown"; // Se não encontrar o usuário
+                                    userName = "Unknown"; // se nao encontrar o usuario
                                 }
                             }
                         }
@@ -610,26 +610,26 @@ public:
 
         std::ifstream statusFile(statusPath);
         if (statusFile.is_open()) {
-            // Update section title
+            // atualiza o titulo
             processInfo << "Title 1\n";
             processInfo << "Process ID (PID): " << pid << "\n";
 
             std::string line;
             std::string name, state, vmRSS, vmSize, threadsCount;
             while (std::getline(statusFile, line)) {
-                // Capture specific information
+                // captura informacoes relevantes
                 if (line.find("Name:") == 0) name = line;
                 else if (line.find("State:") == 0) state = line;
                 else if (line.find("VmRSS:") == 0) vmRSS = line;
                 else if (line.find("VmSize:") == 0) vmSize = line;
                 else if (line.find("Threads:") == 0) threadsCount = line;
 
-                // Add other relevant lines
+                // adiciona informacoes do arquivo status
                 processInfo << line << "\n";
             }
             statusFile.close();
 
-            // Add organized information
+            // adiciona informacoes adicionais
             processInfo << "\nTitle 2\n";
             if (!name.empty()) processInfo << name << "\n";
             if (!state.empty()) processInfo << state << "\n";
@@ -637,7 +637,7 @@ public:
             if (!vmSize.empty()) processInfo << "Virtual Memory: " << vmSize << "\n";
             if (!threadsCount.empty()) processInfo << threadsCount << "\n";
 
-            // Threads information
+            // adiciona informacoes das threads
             std::string taskDir = processDir + "/task/";
             DIR* dir = opendir(taskDir.c_str());
             if (dir) {
