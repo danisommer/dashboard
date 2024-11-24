@@ -10,7 +10,7 @@ import threading
 cycle_time = 1000  # milissegundos
 cycle_time_graphs = 500  # milissegundos
 cycle_time_processes = 1000  # milissegundos
-cycle_time_process_detail = 1000  # milissegundos
+cycle_time_process_detail = 500  # milissegundos
 last_selected_process = None
 processes_thread = 5
 last_thread_num = 0
@@ -634,7 +634,7 @@ class DashboardApp:
                     print(f"Error fetching process info: {item[1]}")
 
             detail_window.after(cycle_time_process_detail, update_process_info)
-            detail_window.after(500, process_detail_queue)
+            detail_window.after(250, process_detail_queue)
 
         update_process_info()
         process_detail_queue()
