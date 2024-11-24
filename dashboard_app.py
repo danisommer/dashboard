@@ -54,6 +54,10 @@ class DashboardApp:
         self.initialize_disk_histories()
         self.root.after(100, self.process_queue)
         
+        self.detail_window = None
+        self.detail_treeviews = {}
+        self.current_pid = None
+
     #funcoes de inicializacao de historicos dos graficos
     def initialize_cpu_core_histories(self):
         core_usages = self.sys_info.get_cpu_usage_per_core()
@@ -486,13 +490,12 @@ class DashboardApp:
 
     def on_treeview_double_click(self, event):
         region = self.process_tree.identify("region", event.x, event.y)
-        
         if region == "heading":
             return "break"
         elif region == "cell":
-            self.show_process_details(event)
+            self.show_process_details()
 
-    def show_process_details(self, event):
+    def show_process_details(self):
         selected_item = self.process_tree.selection()
         if selected_item:
             pid = self.process_tree.item(selected_item[0], 'values')[0]
@@ -503,8 +506,17 @@ class DashboardApp:
                 tk.messagebox.showerror("Error", "Invalid PID")
 
     def display_process_details(self, pid):
+        self.current_pid = pid
+        if self.detail_window is None or not self.detail_window.winfo_exists():
+            self.detail_window, self.detail_treeviews = self.init_process_detail_window()
+            self.update_process_detail_window()
+        else:
+            # atualiza o titulo da janela com o novo pid
+            self.detail_window.title(f"Process Details - PID {self.current_pid}")
+
+    def init_process_detail_window(self):
         detail_window = tk.Toplevel(self.root)
-        detail_window.title(f"Process Details - PID {pid}")
+        detail_window.title(f"Process Details - PID {self.current_pid}")
         detail_window.geometry("800x600")
         detail_window.configure(bg='#f0f0f0')
 
@@ -516,12 +528,12 @@ class DashboardApp:
 
         title_label = ttk.Label(
             title_frame,
-            text=f"Process Details (PID: {pid})",
+            text=f"Process Details (PID: {self.current_pid})",
             font=("Helvetica", 14, "bold")
         )
         title_label.pack(side="left")
 
-        # notebook para as secoes
+        # notebook para as seções
         notebook = ttk.Notebook(main_frame)
         notebook.pack(side="left", fill="both", expand=True)
 
@@ -566,6 +578,9 @@ class DashboardApp:
 
         treeviews["threads"] = threads_treeview
 
+        return detail_window, treeviews
+
+    def update_process_detail_window(self):
         def format_section(treeview, content, section_name):
             if section_name == "threads":
                 threads = content.strip().split('Thread ID (TID):')
@@ -593,7 +608,7 @@ class DashboardApp:
 
         def update_treeviews(process_info):
             sections = process_info.split('Title')
-            for name, treeview in treeviews.items():
+            for name, treeview in self.detail_treeviews.items():
                 treeview.delete(*treeview.get_children())
                 for section in sections:
                     section = section.strip()
@@ -610,16 +625,18 @@ class DashboardApp:
 
         def update_process_info():
             def worker():
+                pid = self.current_pid
                 try:
                     process_info = self.sys_info.get_specific_process(pid)
                     self.result_queue.put(('process_detail', process_info))
                 except Exception as e:
                     self.result_queue.put(('error', str(e)))
-
             self.executor.submit(worker)
+            if self.detail_window is not None and self.detail_window.winfo_exists():
+                self.detail_window.after(cycle_time_process_detail, update_process_info)
 
         def process_detail_queue():
-            if not detail_window.winfo_exists():
+            if self.detail_window is None or not self.detail_window.winfo_exists():
                 return
 
             while not self.result_queue.empty():
@@ -630,11 +647,12 @@ class DashboardApp:
                 if item[0] == 'process_detail':
                     process_info = item[1]
                     update_treeviews(process_info)
+                    # atualiza o titulo da janela caso o pid tenha mudado
+                    self.detail_window.title(f"Process Details - PID {self.current_pid}")
                 elif item[0] == 'error':
                     print(f"Error fetching process info: {item[1]}")
 
-            detail_window.after(cycle_time_process_detail, update_process_info)
-            detail_window.after(250, process_detail_queue)
+            self.detail_window.after(250, process_detail_queue)
 
         update_process_info()
         process_detail_queue()
