@@ -670,99 +670,6 @@ public:
         info = processInfo.str();
         return info.c_str();
     }
-
-    const char* getBasicProcessInfo(int pid) {
-        static std::string info;
-        info.clear();
-
-        std::ostringstream processInfo;
-        std::string processDir = "/proc/" + std::to_string(pid);
-        std::string statusPath = processDir + "/status";
-
-        std::ifstream statusFile(statusPath);
-        if (statusFile.is_open()) {
-            processInfo << "Title 1\n";
-            processInfo << "Process ID (PID): " << pid << "\n";
-
-            std::string line;
-            while (std::getline(statusFile, line)) {
-                if (line.find("Name:") == 0 || line.find("State:") == 0) {
-                    processInfo << line << "\n";
-                }
-            }
-            statusFile.close();
-        }
-        info = processInfo.str();
-        return info.c_str();
-    }
-
-    const char* getResourceInfo(int pid) {
-        static std::string info;
-        info.clear();
-
-        std::ostringstream processInfo;
-        std::string processDir = "/proc/" + std::to_string(pid);
-        std::string statusPath = processDir + "/status";
-
-        std::ifstream statusFile(statusPath);
-        if (statusFile.is_open()) {
-            processInfo << "\nTitle 2\n";
-            std::string line;
-            std::string vmRSS, vmSize, threadsCount;
-            while (std::getline(statusFile, line)) {
-                if (line.find("VmRSS:") == 0) vmRSS = line;
-                else if (line.find("VmSize:") == 0) vmSize = line;
-                else if (line.find("Threads:") == 0) threadsCount = line;
-            }
-            statusFile.close();
-
-            if (!vmRSS.empty()) processInfo << "Resident Memory (RAM): " << vmRSS << "\n";
-            if (!vmSize.empty()) processInfo << "Virtual Memory: " << vmSize << "\n";
-            if (!threadsCount.empty()) processInfo << threadsCount << "\n";
-        }
-        info = processInfo.str();
-        return info.c_str();
-    }
-
-    const char* getThreadsInfo(int pid) {
-        static std::string info;
-        info.clear();
-
-        std::ostringstream processInfo;
-        std::string processDir = "/proc/" + std::to_string(pid);
-        std::string taskDir = processDir + "/task/";
-
-        DIR* dir = opendir(taskDir.c_str());
-        if (dir) {
-            processInfo << "\nTitle 3\n";
-            struct dirent* entry;
-            while ((entry = readdir(dir)) != NULL) {
-                if (entry->d_type == DT_DIR) {
-                    std::string tidStr = entry->d_name;
-                    if (std::all_of(tidStr.begin(), tidStr.end(), ::isdigit)) {
-                        int tid = std::stoi(tidStr);
-                        std::string threadStatusPath = taskDir + tidStr + "/status";
-                        std::ifstream threadStatusFile(threadStatusPath);
-                        if (threadStatusFile.is_open()) {
-                            processInfo << "Thread ID (TID): " << tid << "\n";
-                            std::string line;
-                            while (std::getline(threadStatusFile, line)) {
-                                if (line.find("State:") == 0 || line.find("VmRSS:") == 0 ||
-                                    line.find("Name:") == 0 || line.find("Priority:") == 0) {
-                                    processInfo << "  " << line << "\n";
-                                }
-                            }
-                            threadStatusFile.close();
-                        }
-                    }
-                }
-            }
-            closedir(dir);
-        }
-
-        info = processInfo.str();
-        return info.c_str();
-    }
 };
 
 extern "C" {
@@ -856,17 +763,5 @@ extern "C" {
 
     const char* getSpecificProcess(SystemInfo* systemInfo, int pid) {
         return systemInfo->getSpecificProcess(pid);
-    }
-
-    const char* getBasicProcessInfo(SystemInfo* systemInfo, int pid) {
-        return systemInfo->getBasicProcessInfo(pid);
-    }
-
-    const char* getResourceInfo(SystemInfo* systemInfo, int pid) {
-        return systemInfo->getResourceInfo(pid);
-    }
-
-    const char* getThreadsInfo(SystemInfo* systemInfo, int pid) {
-        return systemInfo->getThreadsInfo(pid);
     }
 }

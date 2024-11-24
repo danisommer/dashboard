@@ -110,15 +110,3 @@ class SystemInfo:
     def get_specific_process(self, pid):
         lib.getSpecificProcess.restype = c_char_p
         return lib.getSpecificProcess(self.obj, pid).decode('utf-8')
-    
-    def get_basic_process_info(self, pid):
-        lib.getBasicProcessInfo.restype = c_char_p
-        return lib.getBasicProcessInfo(self.obj, pid).decode('utf-8')
-
-    def get_resource_info(self, pid):
-        lib.getResourceInfo.restype = c_char_p
-        return lib.getResourceInfo(self.obj, pid).decode('utf-8')
-
-    def get_threads_info(self, pid):
-        lib.getThreadsInfo.restype = c_char_p
-        return lib.getThreadsInfo(self.obj, pid).decode('utf-8')

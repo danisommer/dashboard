@@ -9,8 +9,8 @@ import threading
 
 cycle_time = 1000  # milissegundos
 cycle_time_graphs = 500  # milissegundos
-cycle_time_processes = 2000  # milissegundos
-cycle_time_process_detail = 5000  # milissegundos
+cycle_time_processes = 1000  # milissegundos
+cycle_time_process_detail = 1000  # milissegundos
 last_selected_process = None
 processes_thread = 5
 last_thread_num = 0
@@ -521,11 +521,11 @@ class DashboardApp:
         )
         title_label.pack(side="left")
 
-        # notebook para secoes
+        # Notebook for sections
         notebook = ttk.Notebook(main_frame)
         notebook.pack(side="left", fill="both", expand=True)
 
-        # frames para cada secao
+        # Frames for each section
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
@@ -535,45 +535,78 @@ class DashboardApp:
         resources_frame = ttk.Frame(notebook, padding="10")
         notebook.add(resources_frame, text="More Info")
 
-        # cria Treeview widgets para cada secao
         treeviews = {}
-        for name, frame in zip(["basic", "threads", "resources"], [basic_frame, threads_frame, resources_frame]):
+
+        # Treeview for "basic" and "resources" sections
+        for name, frame in zip(["basic", "resources"], [basic_frame, resources_frame]):
             treeview = ttk.Treeview(frame, columns=("Key", "Value"), show="headings")
             treeview.heading("Key", text="Key")
             treeview.heading("Value", text="Value")
             treeview.column("Key", anchor="w", width=200)
             treeview.column("Value", anchor="w", width=400)
             treeview.pack(side="left", fill="both", expand=True)
-            
-            # adiciona scrollbar vertical
+
             scrollbar = ttk.Scrollbar(frame, orient="vertical", command=treeview.yview)
             treeview.configure(yscrollcommand=scrollbar.set)
             scrollbar.pack(side="right", fill="y")
-            
+
             treeviews[name] = treeview
 
-        def format_section(treeview, content):
-            lines = content.split('\n')
-            for line in lines:
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    treeview.insert("", "end", values=(key.strip(), value.strip()))
+        # Treeview for "threads" section with new columns
+        threads_columns = ("Thread ID (TID)", "Name", "State", "VmRSS")
+        threads_treeview = ttk.Treeview(threads_frame, columns=threads_columns, show="headings")
+        for col in threads_columns:
+            threads_treeview.heading(col, text=col)
+            threads_treeview.column(col, anchor="w", width=150)
+        threads_treeview.pack(side="left", fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(threads_frame, orient="vertical", command=threads_treeview.yview)
+        threads_treeview.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+
+        treeviews["threads"] = threads_treeview
+
+        def format_section(treeview, content, section_name):
+            if section_name == "threads":
+                threads = content.strip().split('Thread ID (TID):')
+                for thread_info in threads[1:]:
+                    lines = thread_info.strip().split('\n')
+                    thread_data = {}
+                    thread_data["Thread ID (TID)"] = lines[0].strip()
+                    for line in lines[1:]:
+                        if ':' in line:
+                            key, value = line.split(':', 1)
+                            thread_data[key.strip()] = value.strip()
+                    if thread_data:
+                        treeview.insert("", "end", values=(
+                            thread_data.get("Thread ID (TID)", ""),
+                            thread_data.get("Name", ""),
+                            thread_data.get("State", ""),
+                            thread_data.get("VmRSS", "")
+                        ))
+            else:
+                lines = content.strip().split('\n')
+                for line in lines:
+                    if ':' in line:
+                        key, value = line.split(':', 1)
+                        treeview.insert("", "end", values=(key.strip(), value.strip()))
 
         def update_treeviews(process_info):
-            sections = process_info.split('\n\n')
-
+            sections = process_info.split('Title')
             for name, treeview in treeviews.items():
-                treeview.delete(*treeview.get_children())  # limpa a tabela
-
-                # adiciona conteudo conforme a secao
+                treeview.delete(*treeview.get_children())
                 for section in sections:
-                    if section.strip():
-                        if name == "basic" and "Title 1" in section:
-                            format_section(treeview, section.replace("Title 1\n", ""))
-                        elif name == "threads" and "Title 3" in section:
-                            format_section(treeview, section.replace("Title 3\n", ""))
-                        elif name == "resources" and "Title 2" in section:
-                            format_section(treeview, section.replace("Title 2\n", ""))
+                    section = section.strip()
+                    if section:
+                        if name == "basic" and section.startswith("1"):
+                            content = section.split('\n', 1)[1]
+                            format_section(treeview, content, name)
+                        elif name == "threads" and section.startswith("3"):
+                            content = section.split('\n', 1)[1]
+                            format_section(treeview, content, name)
+                        elif name == "resources" and section.startswith("2"):
+                            content = section.split('\n', 1)[1]
+                            format_section(treeview, content, name)
 
         def update_process_info():
             def worker():
@@ -587,9 +620,8 @@ class DashboardApp:
 
         def process_detail_queue():
             if not detail_window.winfo_exists():
-                return  # sai se a janela foi fechada
+                return
 
-            # processa a fila de resultados
             while not self.result_queue.empty():
                 try:
                     item = self.result_queue.get_nowait()
@@ -599,11 +631,10 @@ class DashboardApp:
                     process_info = item[1]
                     update_treeviews(process_info)
                 elif item[0] == 'error':
-                    print(f"Erro ao buscar informacoes do processo: {item[1]}")
+                    print(f"Error fetching process info: {item[1]}")
 
-            # agendar a proxima atualizacao
-            detail_window.after(cycle_time_process_detail, update_process_info)  # busca novos dados
-            detail_window.after(500, process_detail_queue)  # verifica a fila com intervalo maior
+            detail_window.after(cycle_time_process_detail, update_process_info)
+            detail_window.after(500, process_detail_queue)
 
         update_process_info()
         process_detail_queue()
