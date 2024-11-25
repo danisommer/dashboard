@@ -540,6 +540,7 @@ public:
                     std::ifstream statusFile(statusPath);
                     if (statusFile.is_open()) {
                         std::string line;
+                        std::string ppid;
                         std::string name;
                         std::string threads = "0"; // inicializa threads com "0"
                         std::string state;
@@ -549,7 +550,9 @@ public:
 
                         while (std::getline(statusFile, line)) {
                             line = replaceTabsWithSpaces(line);
-
+                            if (line.find("PPid:") == 0) {
+                                ppid = line.substr(line.find(":") + 2);
+                            }
                             if (line.find("Name:") == 0) {
                                 name = line.substr(line.find(":") + 2);
                             }
@@ -578,7 +581,7 @@ public:
                                 }
                             }
                         }
-                        processesInfo << pid << "\t" << name << "\t" << userName << "\t" << state << "\t" 
+                        processesInfo << pid << "\t" << ppid << "\t" << name << "\t" << userName << "\t" << state << "\t" 
                                     << threads << "\t" << vsize << "\t" << rss << "\n";
                         statusFile.close();
                     }
