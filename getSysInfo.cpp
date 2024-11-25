@@ -603,7 +603,7 @@ public:
     }
 
     // funcao para obter informacoes especificas de um processo
-        const char* getSpecificProcess(int pid) {
+    const char* getSpecificProcess(int pid) {
         static std::string info;
         info.clear();
 

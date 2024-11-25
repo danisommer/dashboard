@@ -1,5 +1,5 @@
 import os
-from ctypes import cdll, c_char_p
+from ctypes import cdll, c_char_p, c_int
 
 # carrega a biblioteca c++
 lib = cdll.LoadLibrary('./libGetSysInfo.so')
@@ -19,14 +19,6 @@ class SystemInfo:
             "Load Average": lib.getLoadAverage,
             "Process Count": lib.getProcessCount,
             "Thread Count": lib.getThreadCount
-
-            # "Network Receive Rate": lib.getNetworkReceiveRate,
-            # "Network Transmit Rate": lib.getNetworkTransmitRate,
-            # "Total Memory": lib.getTotalMemory,
-            # "Free Memory": lib.getFreeMemory,
-            # "Swap Usage": lib.getSwapUsage,
-            # "Used Disk": lib.getUsedDisk,
-            # "Free Disk": lib.getFreeDisk
         }
 
         lib.getTotalMemory.restype = c_char_p
@@ -108,5 +100,5 @@ class SystemInfo:
         return lib.killProcess(self.obj, pid)
     
     def get_specific_process(self, pid):
-        lib.getSpecificProcess.restype = c_char_p
-        return lib.getSpecificProcess(self.obj, pid).decode('utf-8')
+        lib.getSpecificProcess.restype = c_char_p        
+        return lib.getSpecificProcess(self.obj, c_int(int(pid))).decode('utf-8')
