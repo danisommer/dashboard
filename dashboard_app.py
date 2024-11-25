@@ -453,8 +453,6 @@ class DashboardApp:
         # restaura a posicao da barra de rolagem
         self.process_tree.yview_moveto(0.0)
 
-
-
     def close_process_window(self):
         self.process_window_running = False
         self.process_window.destroy()
@@ -544,22 +542,22 @@ class DashboardApp:
         for item in self.process_treeview.get_children():
             save_expansion_state(item)
 
-        # Save the currently selected PID
+        # salvar o processo selecionado
         selected_item = self.process_treeview.selection()
         last_selected_pid = None
         if selected_item:
             last_selected_pid = self.process_treeview.item(selected_item[0], 'values')[0]
 
-        # Save the scrollbar position
+        # salva a posicao da barra de rolagem
         treeview_yview = self.process_treeview.yview()
 
-        # Save sorting state
+        # salva a ordenacao
         sort_column = self.treeview_sort_column
         sort_reverse = self.treeview_sort_reverse
 
         self.process_treeview.delete(*self.process_treeview.get_children())
 
-        # Build a dictionary with process information
+        # constroi um dicionario de informacoes de processo
         process_info = {}
         lines = processes.strip().split('\n')
         for line in lines:
@@ -577,7 +575,7 @@ class DashboardApp:
                     'rss': rss
                 }
 
-        # Insert processes into the tree
+        # insere os processos na arvore
         inserted_items = {}
         def insert_process(pid):
             if pid in inserted_items:
@@ -600,10 +598,10 @@ class DashboardApp:
                     f"{info['rss']} KB"
                 ))
                 inserted_items[pid] = item
-                # Restore expansion state
+                # restaura a expansao
                 if pid in expanded_pids:
                     self.process_treeview.item(item, open=True)
-                # Restore selection
+                # restaura a selecao
                 if pid == last_selected_pid:
                     self.process_treeview.selection_set(item)
                     self.process_treeview.see(item)
@@ -613,10 +611,10 @@ class DashboardApp:
         for pid in process_info.keys():
             insert_process(pid)
 
-        # Restore the scrollbar position
+        # restaura a posicao da barra de rolagem
         self.process_treeview.yview_moveto(treeview_yview[0])
 
-        # Apply sorting
+        # aplicar ordenacao
         if sort_column:
             self.sort_process_tree(sort_column, invert_sort=False)
 
@@ -632,7 +630,7 @@ class DashboardApp:
             data = []
             for child in children:
                 item_values = self.process_treeview.item(child)['values']
-                if col == "#0":  # Sorting by 'Name' column
+                if col == "#0":  # ordenar por nome
                     value = self.process_treeview.item(child)['text']
                 else:
                     col_index = self.process_treeview['columns'].index(col)
