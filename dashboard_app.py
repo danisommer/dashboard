@@ -376,7 +376,7 @@ class DashboardApp:
         # inicializa a ordenacao
         self.treeview_sort_column = None
         self.treeview_sort_reverse = False
-
+    
         # eventos de clique
         self.process_tree.bind("<Double-1>", self.on_treeview_double_click)
         self.process_tree.bind("<<TreeviewSelect>>", self.update_kill_button_state)
