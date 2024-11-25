@@ -316,10 +316,10 @@ class DashboardApp:
         self.process_window.grid_rowconfigure(0, weight=1)
         self.process_window.grid_columnconfigure(0, weight=1)
         
-        columns = ("PID", "Name", "Uid", "State", "Threads", "Physical Memory", "Virtual Memory") 
+        columns = ("PID", "PPID", "Name", "Uid", "State", "Threads", "Physical Memory", "Virtual Memory") 
         self.process_tree = ttk.Treeview(self.process_window, columns=columns, show="headings")
         
-        column_widths = {"PID": 60, "Name": 200, "Uid": 100, "State": 80, "Threads": 60, "Physical Memory": 100, "Virtual Memory": 100}
+        column_widths = {"PID": 60, "PPID": 60, "Name": 200, "Uid": 100, "State": 80, "Threads": 60, "Physical Memory": 100, "Virtual Memory": 100}
         for col in columns:
             self.process_tree.heading(col, text=col)
             self.process_tree.column(col, anchor="center", minwidth=column_widths[col], width=column_widths[col], stretch=True)
@@ -389,7 +389,7 @@ class DashboardApp:
         col_index = self.process_tree["columns"].index(col)
         def sort_key(item):
             value = item[0][col_index]
-            if col in ["PID", "Threads"]:
+            if col in ["PID", "PPID", "Threads"]:
                 return int(value)
             elif col in ["Physical Memory", "Virtual Memory"]:
                 try:
@@ -452,18 +452,18 @@ class DashboardApp:
 
         for line in lines:
             parts = line.split('\t')
-            if len(parts) >= 7:
-                pid, name, uid, state, threads, vsize, rss = parts
+            if len(parts) >= 8:
+                pid, ppid, name, uid, state, threads, vsize, rss = parts
                 new_pids.add(pid)
                 vsize = f"{vsize} KB" if vsize else "0 KB"
                 rss = f"{rss} KB" if rss else "0 KB"
 
                 if pid in existing_items:
                     # atualiza item existente
-                    self.process_tree.item(existing_items[pid], values=(pid, name, uid, state, threads, vsize, rss))
+                    self.process_tree.item(existing_items[pid], values=(pid, ppid, name, uid, state, threads, vsize, rss))
                 else:
                     # insere novo item
-                    self.process_tree.insert("", "end", values=(pid, name, uid, state, threads, vsize, rss))
+                    self.process_tree.insert("", "end", values=(pid, ppid, name, uid, state, threads, vsize, rss))
 
         # remove processos que nao estao mais rodando
         for pid in set(existing_items.keys()) - new_pids:
