@@ -207,8 +207,8 @@ class DashboardApp:
                     self.disk_write_history.pop(0)
                 self.refresh_disk_graph()
             elif item[0] == 'processes_update':
-                        processes = item[1]
-                        self.refresh_process_list(processes)
+                processes = item[1]
+                self.refresh_process_tree(processes)
         self.root.after(100, self.process_queue)
 
     # funcoes de atualizacao e refresh do grafico de cpu
@@ -282,24 +282,6 @@ class DashboardApp:
         self.disk_ax.set_ylim(0, max_disk_usage + 1e-9)  
         self.canvas.draw_idle()
 
-    def on_heading_click(self, event):
-        # verifica se o clique esta bloqueado
-        if self.heading_click_locked:
-            return "break"
-
-        # ativa o bloqueio de cliques e agenda a liberacao
-        self.heading_click_locked = True
-        self.root.after(300, self.unlock_heading_click)
-
-        # verifica se foi clicado no cabecalho
-        region = self.process_tree.identify_region(event.x, event.y)
-        if region == 'heading':
-            column = self.process_tree.identify_column(event.x)
-            col_index = int(column.replace('#', '')) - 1
-            col_name = self.process_tree["columns"][col_index]
-            self.sort_processes(col_name)
-            return "break"
-
     def unlock_heading_click(self):
         self.heading_click_locked = False
 
@@ -309,46 +291,21 @@ class DashboardApp:
             return
 
         self.process_window = tk.Toplevel(self.root)
-        self.process_window.title("Process List")
+        self.process_window.title("Process Tree")
         self.process_window.geometry("800x400")
         self.process_window.resizable(True, True)
 
-        # cria um notebook para alternar entre a lista de processos e a arvore de processos
-        notebook = ttk.Notebook(self.process_window)
-        notebook.pack(fill='both', expand=True)
-        
-        self.process_notebook = notebook
-
-        # tab 1: lista de processos
-        process_list_frame = ttk.Frame(notebook)
-        notebook.add(process_list_frame, text="Process List")
+        # tab 1: arvore de processos
+        process_tree_frame = ttk.Frame(self.process_window)
+        process_tree_frame.pack(fill='both', expand=True)
 
         columns = ("PID", "PPID", "Name", "Uid", "State", "Threads", "Physical Memory", "Virtual Memory")
-        self.process_tree = ttk.Treeview(process_list_frame, columns=columns, show="headings")
+        self.process_treeview = ttk.Treeview(process_tree_frame, columns=columns, show="tree headings")
         column_widths = {"PID": 60, "PPID": 60, "Name": 200, "Uid": 100, "State": 80, "Threads": 60,
                         "Physical Memory": 100, "Virtual Memory": 100}
         for col in columns:
-            self.process_tree.heading(col, text=col)
-            self.process_tree.column(col, anchor="center", minwidth=column_widths[col], width=column_widths[col], stretch=True)
-        self.process_tree.pack(fill='both', expand=True)
-        self.process_tree.bind('<Button-1>', self.on_heading_click)
-
-        scrollbar = ttk.Scrollbar(process_list_frame, orient="vertical", command=self.process_tree.yview)
-        self.process_tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side='right', fill='y')
-
-        self.process_tree.bind("<Double-1>", self.on_treeview_double_click)
-
-        # tab 2: arvore de processos
-        process_tree_frame = ttk.Frame(notebook)
-        notebook.add(process_tree_frame, text="Process Tree")
-
-        # treeview para arvore de processos
-        self.process_treeview = ttk.Treeview(process_tree_frame)
-        self.process_treeview['columns'] = columns
-        self.process_treeview.column("#0", width=200, minwidth=150)
-        for col in columns:
-            self.process_treeview.heading(col, text=col)
+            self.process_treeview.heading(col, text=col, 
+                                        command=lambda _col=col: self.sort_process_tree(_col))
             self.process_treeview.column(col, anchor='center', width=column_widths[col])
         self.process_treeview.pack(fill='both', expand=True)
 
@@ -356,17 +313,30 @@ class DashboardApp:
         self.process_treeview.configure(yscrollcommand=scrollbar_tree.set)
         scrollbar_tree.pack(side='right', fill='y')
 
+        # ocultar a barra de rolagem
+        scrollbar_tree.pack_forget()
+
         self.process_window_running = True
         self.update_processes()
 
         self.sort_column = None
         self.sort_reverse = False
 
+        # frame para agrupar os botoes
+        button_frame = tk.Frame(self.process_window)
+        button_frame.pack(pady=10)
+
         # botao para matar processo
-        self.kill_button = tk.Button(self.process_window, text="Kill Process", command=self.kill_selected_process)
-        self.kill_button.pack(pady=10)
+        self.kill_button = tk.Button(button_frame, text="Kill Process", command=self.kill_selected_process)
+        self.kill_button.pack(side=tk.LEFT, padx=5)
         self.kill_button.config(state=tk.DISABLED)
-        self.process_tree.bind("<<TreeviewSelect>>", lambda event: self.update_kill_button_state())
+        self.process_treeview.bind("<<TreeviewSelect>>", self.update_kill_button_state)
+
+        # botao para mostrar detalhes do processo
+        self.show_details_button = tk.Button(button_frame, text="Show Details", command=self.show_selected_process_details)
+        self.show_details_button.pack(side=tk.LEFT, padx=5)
+        self.show_details_button.config(state=tk.DISABLED)
+        self.process_treeview.bind("<<TreeviewSelect>>", self.update_show_details_button_state)
 
         self.process_treeview.heading("#0", text="Name", command=lambda: self.sort_process_tree("#0"))
         for col in columns:
@@ -376,33 +346,36 @@ class DashboardApp:
         # inicializa a ordenacao
         self.treeview_sort_column = None
         self.treeview_sort_reverse = False
-    
-        # eventos de clique
-        self.process_tree.bind("<Double-1>", self.on_treeview_double_click)
-        self.process_tree.bind("<<TreeviewSelect>>", self.update_kill_button_state)
 
-        #evento de clique
-        self.process_treeview.bind("<Double-1>", self.on_treeview_double_click)
+        # eventos de clique
         self.process_treeview.bind("<<TreeviewSelect>>", self.update_kill_button_state)
+        self.process_treeview.bind("<<TreeviewSelect>>", self.update_show_details_button_state)
 
     def update_kill_button_state(self, event=None):
-        current_tab = self.process_notebook.index("current")
-        if current_tab == 0:  # Process List tab
-            tree = self.process_tree
-        else:
-            tree = self.process_treeview
+        tree = self.process_treeview
         selected_item = tree.selection()
         if selected_item:
             self.kill_button.config(state=tk.NORMAL)
         else:
             self.kill_button.config(state=tk.DISABLED)
 
-    def kill_selected_process(self):
-        current_tab = self.process_notebook.index("current")
-        if current_tab == 0:  # Process List tab
-            tree = self.process_tree
+    def update_show_details_button_state(self, event=None):
+        tree = self.process_treeview
+        selected_item = tree.selection()
+        if selected_item:
+            self.show_details_button.config(state=tk.NORMAL)
         else:
-            tree = self.process_treeview
+            self.show_details_button.config(state=tk.DISABLED)
+
+    def show_selected_process_details(self):
+        tree = self.process_treeview
+        selected_item = tree.selection()
+        if selected_item:
+            pid = tree.item(selected_item[0], 'values')[0]
+            self.display_process_details(pid)
+
+    def kill_selected_process(self):
+        tree = self.process_treeview
         selected_item = tree.selection()
         if selected_item:
             pid = tree.item(selected_item[0], 'values')[0]
@@ -415,43 +388,6 @@ class DashboardApp:
                 tk.messagebox.showerror("Error", "Invalid PID")
         else:
             tk.messagebox.showerror("Error", "No process selected")
-            
-    def sort_processes(self, col, invert_sort=True):
-        if col != self.sort_column:
-            self.sort_reverse = False
-        elif invert_sort:
-            self.sort_reverse = not self.sort_reverse
-        self.sort_column = col
-
-        # obter todos os dados
-        data = [
-            (self.process_tree.item(child)['values'], child)
-            for child in self.process_tree.get_children('')
-        ]
-
-        # determinar chave de ordenacao
-        col_index = self.process_tree["columns"].index(col)
-        def sort_key(item):
-            value = item[0][col_index]
-            if col in ["PID", "PPID", "Threads"]:
-                return int(value)
-            elif col in ["Physical Memory", "Virtual Memory"]:
-                try:
-                    return float(value.replace(" KB", ""))
-                except ValueError:
-                    return 0.0
-            return value.lower()
-
-        # ordenar
-        data.sort(key=sort_key, reverse=self.sort_reverse)
-
-        # recriar a arvore com os dados ordenados
-        self.process_tree.delete(*self.process_tree.get_children())
-        for values, _ in data:
-            self.process_tree.insert('', 'end', values=values)
-
-        # restaura a posicao da barra de rolagem
-        self.process_tree.yview_moveto(0.0)
 
     def close_process_window(self):
         self.process_window_running = False
@@ -466,72 +402,11 @@ class DashboardApp:
             threading.Thread(target=worker).start()
             self.root.after(cycle_time_processes, self.update_processes) 
 
-    def refresh_process_list(self, processes):
-        global last_selected_process
-
-        if not hasattr(self, 'process_tree') or not self.process_tree.winfo_exists():
-            return
-
-        # salva a posicao da barra de rolagem e a ordenacao
-        treeview_yview = self.process_tree.yview()
-        sort_column = self.sort_column
-        sort_reverse = self.sort_reverse
-
-        selected_item = self.process_tree.selection()
-        last_selected_process = None
-        if selected_item:
-            last_selected_process = self.process_tree.item(selected_item[0], 'values')[0]
-
-        # mapeia os processos existentes
-        existing_items = {}
-        for item in self.process_tree.get_children():
-            pid = self.process_tree.item(item, 'values')[0]
-            existing_items[pid] = item
-
-        # processa novos processos
-        lines = processes.strip().split('\n')
-        new_pids = set()
-
-        for line in lines:
-            parts = line.split('\t')
-            if len(parts) >= 8:
-                pid, ppid, name, uid, state, threads, vsize, rss = parts
-                new_pids.add(pid)
-                vsize = f"{vsize} KB" if vsize else "0 KB"
-                rss = f"{rss} KB" if rss else "0 KB"
-
-                if pid in existing_items:
-                    # atualiza item existente
-                    self.process_tree.item(existing_items[pid], values=(pid, ppid, name, uid, state, threads, vsize, rss))
-                else:
-                    # insere novo item
-                    self.process_tree.insert("", "end", values=(pid, ppid, name, uid, state, threads, vsize, rss))
-
-        # remove processos que nao estao mais rodando
-        for pid in set(existing_items.keys()) - new_pids:
-            self.process_tree.delete(existing_items[pid])
-
-        # restaura a ordenacao
-        if sort_column:
-            self.sort_processes(sort_column, invert_sort=False)
-
-        # reseleciona o processo que estava selecionado antes
-        if last_selected_process:
-            for item in self.process_tree.get_children():
-                if self.process_tree.item(item, 'values')[0] == last_selected_process:
-                    self.process_tree.selection_set(item)
-                    self.process_tree.see(item)
-                    break
-
-        # restaura a posicao da barra de rolagem
-        self.process_tree.yview_moveto(treeview_yview[0])
-        self.refresh_process_tree(processes)
-
     def refresh_process_tree(self, processes):
         if not hasattr(self, 'process_treeview') or not self.process_treeview.winfo_exists():
             return
 
-        # Save the expansion state
+        # salvar a expansao
         expanded_pids = set()
         def save_expansion_state(item):
             if self.process_treeview.item(item, 'open'):
@@ -651,17 +526,6 @@ class DashboardApp:
                 self.process_treeview.move(child, parent_item, index)
                 sort_children(child)
         sort_children('')
-
-    def on_treeview_double_click(self, event):
-        widget = event.widget
-        region = widget.identify("region", event.x, event.y)
-        if region == "heading":
-            return "break"
-        elif region == "cell":
-            selected_item = widget.selection()
-            if selected_item:
-                pid = widget.item(selected_item[0], 'values')[0]
-                self.display_process_details(pid)
 
     def display_process_details(self, pid):
         detail_window = tk.Toplevel(self.root)
