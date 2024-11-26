@@ -326,34 +326,33 @@ class DashboardApp:
         button_frame = tk.Frame(self.process_window)
         button_frame.pack(pady=10)
 
-        # botao para matar processo
-        self.kill_button = tk.Button(button_frame, text="Kill Process", command=self.kill_selected_process)
-        self.kill_button.pack(side=tk.LEFT, padx=5)
-        self.kill_button.config(state=tk.DISABLED)
-        self.process_treeview.bind("<<TreeviewSelect>>", self.update_kill_button_state)
-
         # botao para mostrar detalhes do processo
         self.show_details_button = tk.Button(button_frame, text="Show Details", command=self.show_selected_process_details)
         self.show_details_button.pack(side=tk.LEFT, padx=5)
         self.show_details_button.config(state=tk.DISABLED)
-        self.process_treeview.bind("<<TreeviewSelect>>", self.update_show_details_button_state)
+
+        # botao para matar processo
+        self.kill_button = tk.Button(button_frame, text="Kill Process", command=self.kill_selected_process)
+        self.kill_button.pack(side=tk.LEFT, padx=5)
+        self.kill_button.config(state=tk.DISABLED)
+
+        self.process_treeview.bind("<<TreeviewSelect>>", self.handle_treeview_selection)
 
         self.process_treeview.heading("#0", text="Name", command=lambda: self.sort_process_tree("#0"))
         for col in columns:
-            self.process_treeview.heading(col, text=col, 
-                                        command=lambda _col=col: self.sort_process_tree(_col))
+            self.process_treeview.heading(col, text=col, command=lambda _col=col: self.sort_process_tree(_col))
 
         # inicializa a ordenacao
         self.treeview_sort_column = None
         self.treeview_sort_reverse = False
 
-        # eventos de clique
-        self.process_treeview.bind("<<TreeviewSelect>>", self.update_kill_button_state)
-        self.process_treeview.bind("<<TreeviewSelect>>", self.update_show_details_button_state)
+    def handle_treeview_selection(self, event=None):
+        self.update_kill_button_state()
+        self.update_show_details_button_state()
 
     def update_kill_button_state(self, event=None):
         tree = self.process_treeview
-        selected_item = tree.selection()
+        selected_item = tree.selection()        
         if selected_item:
             self.kill_button.config(state=tk.NORMAL)
         else:
