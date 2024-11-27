@@ -374,63 +374,73 @@ class DashboardApp:
             self.display_process_details(pid)
 
     def kill_selected_process(self):
-        if not self.custom_message_box(
+        def on_response(response):
+            if response:
+                tree = self.process_treeview
+                selected_item = tree.selection()
+                if selected_item:
+                    try:
+                        pid = int(tree.item(selected_item[0], "values")[0])
+                        result = self.sys_info.kill_process(pid)
+                        if result == "0":
+                            self.update_processes()
+                    except Exception as e:
+                        tk.messagebox.showerror("Error", f"Unexpected error: {e}")
+
+        self.custom_message_box(
             title="Confirm Termination",
             message="Are you sure you want to kill the selected process?",
-        ):
-            return False
+            callback=on_response,
+        )
 
-        tree = self.process_treeview
-        selected_item = tree.selection()
-        if selected_item:
-            try:
-                pid = int(tree.item(selected_item[0], 'values')[0])
-                result = self.sys_info.kill_process(pid)
-                if result == "0":
-                    self.update_processes()
-                    return True
-            except Exception as e:
-                tk.messagebox.showerror("Error", f"Unexpected error: {e}")
-        return False
-
-    def custom_message_box(self, title, message):
+    def custom_message_box(self, title, message, callback):
         def on_yes():
-            response.set(True)
+            callback(True)
             top.destroy()
 
         def on_no():
-            response.set(False)
+            callback(False)
             top.destroy()
 
-        top = tk.Toplevel()
+        top = tk.Toplevel(self.root)
         top.title(title)
         top.geometry("300x150")
         top.resizable(False, False)
         top.protocol("WM_DELETE_WINDOW", on_no)
-        top.grab_set()
 
-        # Main container for vertical alignment
         container = ttk.Frame(top)
         container.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Configurations for font and style
         custom_font = ("Arial", 12)
         ttk.Style().configure("TButton", font=custom_font)
-        
-        # Labels
-        ttk.Label(container, text="Warning", font=("Arial", 16)).pack(pady=(0, 5), anchor="center")
-        ttk.Label(container, text=message, wraplength=250, anchor="center").pack(pady=(0, 10), anchor="center")
 
-        # Button frame
+        ttk.Label(
+            container, text="Warning", font=("Arial", 16)
+        ).pack(pady=(0, 5), anchor="center")
+        ttk.Label(
+            container, text=message, wraplength=250, anchor="center"
+        ).pack(pady=(0, 10), anchor="center")
+
         button_frame = ttk.Frame(container)
         button_frame.pack(anchor="center")
-        ttk.Button(button_frame, text="Yes", command=on_yes, padding=(10, 5)).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="No", command=on_no, padding=(10, 5)).pack(side="left", padx=5)
 
-        # Wait for user interaction
-        response = tk.BooleanVar()
-        top.wait_window()
-        return response.get()
+        style = ttk.Style()
+        style.configure("Small.TButton", font=("Arial", 10))
+
+        ttk.Button(
+            button_frame,
+            text="Yes",
+            command=on_yes,
+            style="Small.TButton",
+            padding=(10, 5),
+        ).pack(side="left", padx=5)
+        ttk.Button(
+            button_frame,
+            text="No",
+            command=on_no,
+            style="Small.TButton",
+            padding=(10, 5),
+        ).pack(side="left", padx=5)
 
     def close_process_window(self):
         self.process_window_running = False
@@ -594,10 +604,22 @@ class DashboardApp:
         kill_button.pack(side="right")
         kill_button.bind("<ButtonRelease-1>", lambda e: on_process_killed())
 
-        #fecha a janela se o processo for morto
+        # fecha a janela se o processo for morto
         def on_process_killed():
-            if self.kill_selected_process:
-                detail_window.destroy()
+            def confirm_kill(response):
+                if response:
+                    try:
+                        result = self.sys_info.kill_process(pid)
+                        if result == "0":
+                            tk.messagebox.showinfo("Process Terminated", f"Process {pid} has been terminated.")
+                            detail_window.destroy()
+                    except Exception as e:
+                        tk.messagebox.showerror("Error", f"Unexpected error: {e}")
+            self.custom_message_box(
+                title="Confirm Termination",
+                message="Are you sure you want to kill this process?",
+                callback=confirm_kill
+            )
 
         # notebook para as secoes
         notebook = ttk.Notebook(main_frame)
