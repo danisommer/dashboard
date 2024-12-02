@@ -169,7 +169,12 @@ class DashboardApp:
     def process_queue(self):
         while not self.result_queue.empty():
             item = self.result_queue.get()
-            if item[0] == 'field':
+            if item[0] == 'update_processes':
+                self.update_processes()
+            elif item[0] == 'kill_process_error':
+                error_message = item[1]
+                tk.messagebox.showerror("Error", f"Unexpected error: {error_message}")
+            elif item[0] == 'field':
                 field, value = item[1], item[2]
                 self.label_vars[field].set(f"{field}:\n{value}")
             elif item[0] == 'cpu':
@@ -374,25 +379,33 @@ class DashboardApp:
             self.display_process_details(pid)
 
     def kill_selected_process(self):
-        def on_response(response):
-            if response:
-                tree = self.process_treeview
-                selected_item = tree.selection()
-                if selected_item:
+        tree = self.process_treeview
+        selected_item = tree.selection()
+        if selected_item:
+            pid = tree.item(selected_item[0], 'values')[0]
+            print(f"Attempting to kill process with PID: {pid}")  # Debugging statement
+            def on_response(confirmed):
+                if confirmed:
                     try:
-                        pid = int(tree.item(selected_item[0], "values")[0])
-                        result = self.sys_info.kill_process(pid)
-                        if result == "0":
+                        pid_int = int(pid)
+                        result = self.sys_info.kill_process(pid_int)
+                        print(f"Kill process result: {result}")  # Debugging statement
+                        if result == 0:
                             self.update_processes()
-                    except Exception as e:
-                        tk.messagebox.showerror("Error", f"Unexpected error: {e}")
-
-        self.custom_message_box(
-            title="Confirm Termination",
-            message="Are you sure you want to kill the selected process?",
-            callback=on_response,
-        )
-
+                        else:
+                            tk.messagebox.showerror("Error", f"Failed to kill process {pid}")
+                    except ValueError:
+                        tk.messagebox.showerror("Error", "Invalid PID")
+                else:
+                    tk.messagebox.showinfo("Process Not Terminated", f"Process {pid} was not terminated.")
+            self.custom_message_box(
+                title="Confirm Termination",
+                message="Are you sure you want to kill the selected process?",
+                callback=on_response,
+            )
+        else:
+            tk.messagebox.showerror("Error", "No process selected")
+            
     def custom_message_box(self, title, message, callback):
         def on_yes():
             callback(True)
@@ -598,11 +611,6 @@ class DashboardApp:
             font=("Helvetica", 14, "bold")
         )
         title_label.pack(side="left")
-
-        # botao para matar o processo
-        kill_button = ttk.Button(title_frame, text="Kill Process")
-        kill_button.pack(side="right")
-        kill_button.bind("<ButtonRelease-1>", lambda e: on_process_killed())
 
         # fecha a janela se o processo for morto
         def on_process_killed():

@@ -595,11 +595,11 @@ public:
     }
 
     const int killProcess(int pid) {
-        if (kill(pid, SIGKILL) == -1) {
-            return -1; // erro
-        } else {
-            return 0; // sucesso
+        int result = kill(pid, SIGKILL);
+        if (result == -1) {
+            perror("Error killing process");
         }
+        return result;
     }
 
     // funcao para obter informacoes especificas de um processo

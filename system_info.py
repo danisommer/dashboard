@@ -1,5 +1,5 @@
 import os
-from ctypes import cdll, c_char_p, c_int
+from ctypes import cdll, c_char_p, c_int, c_void_p
 
 # carrega a biblioteca c++
 lib = cdll.LoadLibrary('./libGetSysInfo.so')
@@ -96,8 +96,12 @@ class SystemInfo:
         return float(lib.getDiskWrite(self.obj).decode('utf-8'))
 
     def kill_process(self, pid):
-        lib.killProcess.restype = c_char_p
-        return lib.killProcess(self.obj, pid)
+        print(f"Calling killProcess with PID: {pid}")  # Debugging statement
+        lib.killProcess.restype = c_int
+        lib.killProcess.argtypes = [c_void_p, c_int]
+        result = lib.killProcess(self.obj, pid)
+        print(f"killProcess returned: {result}")  # Debugging statement
+        return result
     
     def get_specific_process(self, pid):
         lib.getSpecificProcess.restype = c_char_p        
