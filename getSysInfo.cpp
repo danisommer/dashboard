@@ -27,6 +27,14 @@
 #include <algorithm>
 #include <signal.h>
 
+#include <unistd.h>
+#include <errno.h>
+
+#include <sys/types.h>
+#include <sys/syscall.h>
+#include <errno.h>
+#include <stdio.h>
+
 class SystemInfo {
 public:
 
@@ -595,11 +603,13 @@ public:
     }
 
     const int killProcess(int pid) {
-        int result = kill(pid, SIGKILL);
+        int result = syscall(SYS_kill, pid, SIGKILL);  // Send SIGKILL to the process
         if (result == -1) {
-            perror("Error killing process");
+            // Handle the error case
+            perror("killProcess failed");
+            return -1;
         }
-        return result;
+        return 0;  // Success
     }
 
     // funcao para obter informacoes especificas de um processo

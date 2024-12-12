@@ -96,11 +96,9 @@ class SystemInfo:
         return float(lib.getDiskWrite(self.obj).decode('utf-8'))
 
     def kill_process(self, pid):
-        print(f"Calling killProcess with PID: {pid}")  # Debugging statement
         lib.killProcess.restype = c_int
         lib.killProcess.argtypes = [c_void_p, c_int]
         result = lib.killProcess(self.obj, pid)
-        print(f"killProcess returned: {result}")  # Debugging statement
         return result
     
     def get_specific_process(self, pid):

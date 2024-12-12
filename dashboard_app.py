@@ -383,17 +383,13 @@ class DashboardApp:
         selected_item = tree.selection()
         if selected_item:
             pid = tree.item(selected_item[0], 'values')[0]
-            print(f"Attempting to kill process with PID: {pid}")  # Debugging statement
             def on_response(confirmed):
                 if confirmed:
                     try:
                         pid_int = int(pid)
                         result = self.sys_info.kill_process(pid_int)
-                        print(f"Kill process result: {result}")  # Debugging statement
                         if result == 0:
                             self.update_processes()
-                        else:
-                            tk.messagebox.showerror("Error", f"Failed to kill process {pid}")
                     except ValueError:
                         tk.messagebox.showerror("Error", "Invalid PID")
                 else:
@@ -611,23 +607,6 @@ class DashboardApp:
             font=("Helvetica", 14, "bold")
         )
         title_label.pack(side="left")
-
-        # fecha a janela se o processo for morto
-        def on_process_killed():
-            def confirm_kill(response):
-                if response:
-                    try:
-                        result = self.sys_info.kill_process(pid)
-                        if result == "0":
-                            tk.messagebox.showinfo("Process Terminated", f"Process {pid} has been terminated.")
-                            detail_window.destroy()
-                    except Exception as e:
-                        tk.messagebox.showerror("Error", f"Unexpected error: {e}")
-            self.custom_message_box(
-                title="Confirm Termination",
-                message="Are you sure you want to kill this process?",
-                callback=confirm_kill
-            )
 
         # notebook para as secoes
         notebook = ttk.Notebook(main_frame)
