@@ -167,17 +167,22 @@ class DashboardApp:
         self.root.after(cycle_time, self.update_field, field)
 
     def process_queue(self):
+        # processa itens na fila de resultados
         while not self.result_queue.empty():
             item = self.result_queue.get()
             if item[0] == 'update_processes':
+                # atualiza a lista de processos
                 self.update_processes()
             elif item[0] == 'kill_process_error':
+                # exibe mensagem de erro caso falhe ao matar um processo
                 error_message = item[1]
                 tk.messagebox.showerror("Error", f"Unexpected error: {error_message}")
             elif item[0] == 'field':
+                # atualiza campos de texto na interface
                 field, value = item[1], item[2]
                 self.label_vars[field].set(f"{field}:\n{value}")
             elif item[0] == 'cpu':
+                # atualiza graficos de uso da CPU
                 core_usages = item[1]
                 for core_index, usage in enumerate(core_usages):
                     self.cpu_core_usage_histories[core_index].append(usage)
@@ -185,6 +190,7 @@ class DashboardApp:
                         self.cpu_core_usage_histories[core_index].pop(0)
                 self.refresh_cpu_graph()
             elif item[0] == 'memory':
+                # atualiza graficos de memoria e swap
                 mem_usage, swap_usage = item[1], item[2]
                 self.mem_usage_history.append(mem_usage)
                 self.swap_usage_history.append(swap_usage)
@@ -194,6 +200,7 @@ class DashboardApp:
                     self.swap_usage_history.pop(0)
                 self.refresh_memory_graph()
             elif item[0] == 'network':
+                # atualiza graficos de rede
                 receive_rate, transmit_rate = item[1], item[2]
                 self.network_receive_history.append(receive_rate)
                 self.network_transmit_history.append(transmit_rate)
@@ -203,6 +210,7 @@ class DashboardApp:
                     self.network_transmit_history.pop(0)
                 self.refresh_network_graph()
             elif item[0] == 'disk':
+                # atualiza graficos de disco
                 disk_read, disk_write = item[1], item[2]
                 self.disk_read_history.append(disk_read)
                 self.disk_write_history.append(disk_write)
@@ -212,10 +220,10 @@ class DashboardApp:
                     self.disk_write_history.pop(0)
                 self.refresh_disk_graph()
             elif item[0] == 'processes_update':
+                # atualiza a arvore de processos na interface
                 processes = item[1]
                 self.refresh_process_tree(processes)
         self.root.after(100, self.process_queue)
-
     # funcoes de atualizacao e refresh do grafico de cpu
     def update_cpu_graph(self):
         def worker():
@@ -352,10 +360,12 @@ class DashboardApp:
         self.treeview_sort_reverse = False
 
     def handle_treeview_selection(self, event=None):
+        # atualiza botoes de acao baseados na selecao na arvore de processos
         self.update_kill_button_state()
         self.update_show_details_button_state()
 
     def update_kill_button_state(self, event=None):
+        # habilita ou desabilita o botao de matar processos com base na selecao
         tree = self.process_treeview
         selected_item = tree.selection()        
         if selected_item:
@@ -372,6 +382,7 @@ class DashboardApp:
             self.show_details_button.config(state=tk.DISABLED)
 
     def show_selected_process_details(self):
+        # exibe detalhes do processo selecionado
         tree = self.process_treeview
         selected_item = tree.selection()
         if selected_item:
@@ -379,6 +390,7 @@ class DashboardApp:
             self.display_process_details(pid)
 
     def kill_selected_process(self):
+        # mata o processo selecionado apos confirmacao do usuario
         tree = self.process_treeview
         selected_item = tree.selection()
         if selected_item:
@@ -389,6 +401,7 @@ class DashboardApp:
                         pid_int = int(pid)
                         result = self.sys_info.kill_process(pid_int)
                         if result == 0:
+                            # atualiza processos apos matar o processo
                             self.update_processes()
                     except ValueError:
                         tk.messagebox.showerror("Error", "Invalid PID")
@@ -401,7 +414,7 @@ class DashboardApp:
             )
         else:
             tk.messagebox.showerror("Error", "No process selected")
-            
+
     def custom_message_box(self, title, message, callback):
         def on_yes():
             callback(True)
@@ -556,6 +569,7 @@ class DashboardApp:
             self.sort_process_tree(sort_column, invert_sort=False)
 
     def sort_process_tree(self, col, invert_sort=True):
+        # verifica se a coluna mudou ou se deve inverter a ordem de ordenacao
         if col != self.treeview_sort_column:
             self.treeview_sort_reverse = False
         elif invert_sort:
@@ -563,44 +577,58 @@ class DashboardApp:
         self.treeview_sort_column = col
 
         def sort_children(parent_item):
+            # ordena os filhos de um item na arvore de processos
             children = self.process_treeview.get_children(parent_item)
             data = []
             for child in children:
                 item_values = self.process_treeview.item(child)['values']
-                if col == "#0":  # ordenar por nome
+                if col == "#0":  # ordenar por nome do processo
                     value = self.process_treeview.item(child)['text']
                 else:
                     col_index = self.process_treeview['columns'].index(col)
                     value = item_values[col_index]
                 data.append((child, value))
+            
+            # funcao auxiliar para definir a chave de ordenacao
             def sort_key(item):
                 value = item[1]
+                # caso a coluna seja numerica (PID, PPID, Threads)
                 if col in ["PID", "PPID", "Threads"]:
                     return int(value)
+                # caso seja memoria (fisica ou virtual)
                 elif col in ["Physical Memory", "Virtual Memory"]:
                     try:
                         return float(value.replace(" KB", ""))
                     except ValueError:
                         return 0.0
-                return value.lower()
+                return value.lower()  # ordenacao alfabetica para outras colunas
+
+            # ordena os dados conforme a chave de ordenacao
             data.sort(key=sort_key, reverse=self.treeview_sort_reverse)
             for index, (child, _) in enumerate(data):
+                # move o item ordenado na arvore
                 self.process_treeview.move(child, parent_item, index)
-                sort_children(child)
+                sort_children(child)  # ordena os filhos recursivamente
+
+        # inicia a ordenacao para o item principal (root)
         sort_children('')
 
     def display_process_details(self, pid):
+        # cria uma nova janela para exibir os detalhes do processo
         detail_window = tk.Toplevel(self.root)
         detail_window.title(f"Process Details - PID {pid}")
         detail_window.geometry("800x600")
         detail_window.configure(bg='#f0f0f0')
 
+        # frame principal dentro da nova janela
         main_frame = ttk.Frame(detail_window, padding="10")
         main_frame.pack(fill="both", expand=True)
 
+        # frame para o titulo da janela
         title_frame = ttk.Frame(main_frame)
         title_frame.pack(fill="x", pady=(0, 10))
 
+        # rotulo com o titulo do processo
         title_label = ttk.Label(
             title_frame,
             text=f"Process Details (PID: {pid})",
@@ -608,11 +636,11 @@ class DashboardApp:
         )
         title_label.pack(side="left")
 
-        # notebook para as secoes
+        # criacao de um notebook para separar as secoes do processo
         notebook = ttk.Notebook(main_frame)
         notebook.pack(side="left", fill="both", expand=True)
 
-        # frame para cada secao
+        # frames para cada secao do notebook (informacoes basicas, threads, mais informacoes)
         basic_frame = ttk.Frame(notebook, padding="10")
         notebook.add(basic_frame, text="Basic Info")
 
@@ -624,7 +652,7 @@ class DashboardApp:
 
         treeviews = {}
 
-        # treeviews para cada secao
+        # criacao de treeviews para cada secao (basico e recursos)
         for name, frame in zip(["basic", "resources"], [basic_frame, resources_frame]):
             treeview = ttk.Treeview(frame, columns=("Key", "Value"), show="headings")
             treeview.heading("Key", text="Key")
@@ -633,13 +661,14 @@ class DashboardApp:
             treeview.column("Value", anchor="w", width=400)
             treeview.pack(side="left", fill="both", expand=True)
 
+            # adiciona a barra de rolagem para cada treeview
             scrollbar = ttk.Scrollbar(frame, orient="vertical", command=treeview.yview)
             treeview.configure(yscrollcommand=scrollbar.set)
             scrollbar.pack(side="right", fill="y")
 
             treeviews[name] = treeview
 
-        # treeview para threads
+        # criacao do treeview para as threads do processo
         threads_columns = ("Thread ID (TID)", "Name", "State", "VmRSS")
         threads_treeview = ttk.Treeview(threads_frame, columns=threads_columns, show="headings")
         for col in threads_columns:
@@ -647,14 +676,17 @@ class DashboardApp:
             threads_treeview.column(col, anchor="w", width=150)
         threads_treeview.pack(side="left", fill="both", expand=True)
 
+        # barra de rolagem para o treeview de threads
         scrollbar = ttk.Scrollbar(threads_frame, orient="vertical", command=threads_treeview.yview)
         threads_treeview.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
 
         treeviews["threads"] = threads_treeview
 
+        # funcao para formatar e adicionar as informacoes em cada secao do treeview
         def format_section(treeview, content, section_name):
             if section_name == "threads":
+                # se for a secao de threads, divide as informacoes para cada thread
                 threads = content.strip().split('Thread ID (TID):')
                 for thread_info in threads[1:]:
                     lines = thread_info.strip().split('\n')
@@ -672,12 +704,14 @@ class DashboardApp:
                             thread_data.get("VmRSS", "")
                         ))
             else:
+                # para as outras secoes, insere os dados de chave e valor
                 lines = content.strip().split('\n')
                 for line in lines:
                     if ':' in line:
                         key, value = line.split(':', 1)
                         treeview.insert("", "end", values=(key.strip(), value.strip()))
 
+        # funcao para atualizar os treeviews com as informacoes do processo
         def update_treeviews(process_info):
             sections = process_info.split('Title')
             for name, treeview in treeviews.items():
@@ -695,16 +729,20 @@ class DashboardApp:
                             content = section.split('\n', 1)[1]
                             format_section(treeview, content, name)
 
+        # funcao para obter as informacoes detalhadas do processo
         def update_process_info():
             def worker():
                 try:
+                    # obtem as informacoes detalhadas do processo
                     process_info = self.sys_info.get_specific_process(pid)
                     self.result_queue.put(('process_detail', process_info))
                 except Exception as e:
                     self.result_queue.put(('error', str(e)))
 
+            # envia a tarefa para ser executada em uma thread separada
             self.executor.submit(worker)
 
+        # funcao para processar os dados da fila e atualizar a interface
         def process_detail_queue():
             if not detail_window.winfo_exists():
                 return
@@ -720,11 +758,14 @@ class DashboardApp:
                 elif item[0] == 'error':
                     print(f"Error fetching process info: {item[1]}")
 
+            # chama a atualizacao das informacoes do processo a cada intervalo de tempo
             detail_window.after(cycle_time_process_detail, update_process_info)
             detail_window.after(250, process_detail_queue)
 
+        # inicia a atualizacao das informacoes e o processamento da fila
         update_process_info()
         process_detail_queue()
+
 
     def stop(self):
         self.executor.shutdown(wait=False)
