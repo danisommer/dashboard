@@ -23,4 +23,4 @@ Este projeto é uma aplicação de painel de controle que exibe métricas do sis
 ## Estrutura de Arquivos
 - `dashboard_app.py`: Interface gráfica em Python para exibição das métricas.
 - `getSysInfo.cpp`: Backend em C++ para informações do sistema.
-- `main.py`: Ponto de entrada da aplicação, conectando a interface gráfica ao backend.
+- `system_info.py`: Ponto de entrada da aplicação, conectando a interface gráfica ao backend.
