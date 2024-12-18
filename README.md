@@ -1,32 +1,3 @@
-# System Dashboard Application
-
-## Overview
-This project is a system dashboard application that displays real-time system metrics. It consists of:
-- A **Python GUI** (`dashboard_app.py`) for visualizing system metrics.
-- A **C++ backend** (`getSysInfo.cpp`) for fetching system information.
-
-## Compilation and Execution
-
-### Prerequisites
-- **g++**: For compiling the C++ backend.
-- **Python 3**: For running the GUI application.
-
-### Steps to Compile and Run (Linux)
-1. Navigate to the project directory.
-2. Run the following command to compile the C++ library and start the Python application:
-    ```bash
-    g++ -c -fPIC getSysInfo.cpp -o getSysInfo.o
-    g++ -shared -Wl,-soname,getSysInfo.so -o libGetSysInfo.so getSysInfo.o
-    /bin/python3 main.py
-    ```
-
-## File Structure
-- `dashboard_app.py`: Python GUI for displaying metrics.
-- `getSysInfo.cpp`: C++ backend for system information.
-- `main.py`: Entry point for the application, linking the GUI with the backend.
-
-----------------------------------------------------------------------------------------------------
-
 # Aplicação de Painel de Controle do Sistema
 
 ## Visão Geral
@@ -38,11 +9,11 @@ Este projeto é uma aplicação de painel de controle que exibe métricas do sis
 
 ### Pré-requisitos
 - **g++**: Para compilar o backend em C++.
-- **Python 3**: Para executar a aplicação gráfica.
+- **Python 3**: Para executar a aplicação gráfica (matplotlib).
 
 ### Passos para Compilar e Executar (Linux)
 1. Navegue até o diretório do projeto.
-2. Execute o seguinte comando para compilar a biblioteca C++ e iniciar a aplicação Python:
+2. Execute o seguinte comando para compilar a biblioteca C++ e iniciar a aplicação Python (OU compile a partir do arquivo Makefile presente):
     ```bash
     g++ -c -fPIC getSysInfo.cpp -o getSysInfo.o
     g++ -shared -Wl,-soname,getSysInfo.so -o libGetSysInfo.so getSysInfo.o
