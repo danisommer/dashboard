@@ -603,13 +603,12 @@ public:
     }
 
     const int killProcess(int pid) {
-        int result = syscall(SYS_kill, pid, SIGKILL);  // Send SIGKILL to the process
+        int result = syscall(SYS_kill, pid, SIGKILL);
         if (result == -1) {
-            // Handle the error case
             perror("killProcess failed");
             return -1;
         }
-        return 0;  // Success
+        return 0;
     }
 
     // funcao para obter informacoes especificas de um processo
