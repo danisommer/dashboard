@@ -1,9 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 
-// para manipulacao de usuarios
-#include <pwd.h>   // Para getpwuid()
-#include <unistd.h> // Para getuid()
+
 
 // para manipulacao de arquivos
 #include <fstream>
@@ -15,10 +13,12 @@
 #include <iomanip>
 
 // para manipulacao de diretorios
-#include <dirent.h>
 #include <unistd.h>
 
-// informacoes do sistema (API do SO)
+// informacoes do sistema (API do SO) 
+#include <pwd.h>   // Para getpwuid() para manipulacao de usuarios
+#include <unistd.h> // Para getuid() para manipulacao de usuarios
+#include <dirent.h> //para manipulacao de diretorios
 #include <sys/sysinfo.h>
 #include <sys/statvfs.h>
 #include <sys/utsname.h>
