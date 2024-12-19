@@ -1,8 +1,6 @@
 #include <iostream>
 #include <stdio.h>
 
-
-
 // para manipulacao de arquivos
 #include <fstream>
 #include <sstream>
