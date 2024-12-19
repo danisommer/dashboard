@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdio.h>
 
 // para manipulacao de usuarios
 #include <pwd.h>   // Para getpwuid()
@@ -21,19 +22,15 @@
 #include <sys/sysinfo.h>
 #include <sys/statvfs.h>
 #include <sys/utsname.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
 
 // para manipulacao de processos
 #include <chrono>
 #include <algorithm>
 #include <signal.h>
 
-#include <unistd.h>
 #include <errno.h>
-
-#include <sys/types.h>
-#include <sys/syscall.h>
-#include <errno.h>
-#include <stdio.h>
 
 class SystemInfo {
 public:
