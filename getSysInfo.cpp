@@ -18,17 +18,17 @@
 #include <dirent.h>
 #include <unistd.h>
 
-// informacoes do sistema
+// informacoes do sistema (API do SO)
 #include <sys/sysinfo.h>
 #include <sys/statvfs.h>
 #include <sys/utsname.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <signal.h>
 
 // para manipulacao de processos
 #include <chrono>
 #include <algorithm>
-#include <signal.h>
 
 #include <errno.h>
 
