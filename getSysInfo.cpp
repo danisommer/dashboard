@@ -700,7 +700,7 @@ public:
         return info.c_str();
     }
 
-    // Função para obter informações sobre as partições do sistema de arquivos
+    // funcao para obter informacoes sobre as particoes do sistema de arquivos
     const char* getFileSystemInfo() {
         static std::string info;
         info.clear();
@@ -725,7 +725,7 @@ public:
         return info.c_str();
     }
 
-    // Função para listar arquivos e diretórios em um diretório específico
+    // funcao para listar arquivos e diretorios em um diretorio específico
     const char* listDirectory(const char* path) {
         static std::string info;
         info.clear();
@@ -759,7 +759,7 @@ public:
         return info.c_str();
     }
 
-    // Função para obter informações sobre recursos abertos por um processo
+    // funcao para obter informacoes sobre recursos abertos por um processo
     const char* getProcessResources(int pid) {
         static std::string info;
         info.clear();
@@ -787,7 +787,7 @@ public:
             resourcesInfo << "Error opening fd directory\n";
         }
 
-        // Adicione outras informações de recursos aqui (semaphores, sockets, etc.)
+        // outras informacoes de recursos (semaphores, sockets, etc)
 
         info = resourcesInfo.str();
         return info.c_str();
