@@ -30,6 +30,13 @@
 
 #include <errno.h>
 
+// Sistema de arquivos
+#include <sys/stat.h>
+#include <sys/vfs.h>
+#include <dirent.h>
+#include <pwd.h>
+#include <grp.h>
+
 class SystemInfo {
 public:
 
@@ -692,6 +699,99 @@ public:
         info = processInfo.str();
         return info.c_str();
     }
+
+    // Função para obter informações sobre as partições do sistema de arquivos
+    const char* getFileSystemInfo() {
+        static std::string info;
+        info.clear();
+        struct statvfs stat;
+
+        if (statvfs("/", &stat) == 0) {
+            unsigned long total = stat.f_blocks * stat.f_frsize;
+            unsigned long free = stat.f_bfree * stat.f_frsize;
+            unsigned long used = total - free;
+            double usedPercentage = (double)used / total * 100.0;
+
+            std::ostringstream fsInfo;
+            fsInfo << "Total: " << total / (1024 * 1024) << " MB\n";
+            fsInfo << "Used: " << used / (1024 * 1024) << " MB\n";
+            fsInfo << "Free: " << free / (1024 * 1024) << " MB\n";
+            fsInfo << "Usage: " << usedPercentage << "%\n";
+            info = fsInfo.str();
+        } else {
+            info = "Error retrieving file system info";
+        }
+
+        return info.c_str();
+    }
+
+    // Função para listar arquivos e diretórios em um diretório específico
+    const char* listDirectory(const char* path) {
+        static std::string info;
+        info.clear();
+        DIR* dir = opendir(path);
+        if (dir) {
+            struct dirent* entry;
+            while ((entry = readdir(dir)) != NULL) {
+                struct stat fileStat;
+                std::string fullPath = std::string(path) + "/" + entry->d_name;
+                if (stat(fullPath.c_str(), &fileStat) == 0) {
+                    std::ostringstream fileInfo;
+                    fileInfo << entry->d_name << "\t";
+                    fileInfo << (S_ISDIR(fileStat.st_mode) ? "d" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IRUSR) ? "r" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IWUSR) ? "w" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IXUSR) ? "x" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IRGRP) ? "r" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IWGRP) ? "w" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IXGRP) ? "x" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IROTH) ? "r" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IWOTH) ? "w" : "-");
+                    fileInfo << ((fileStat.st_mode & S_IXOTH) ? "x" : "-");
+                    fileInfo << "\t" << fileStat.st_size << " bytes\n";
+                    info += fileInfo.str();
+                }
+            }
+            closedir(dir);
+        } else {
+            info = "Error opening directory";
+        }
+        return info.c_str();
+    }
+
+    // Função para obter informações sobre recursos abertos por um processo
+    const char* getProcessResources(int pid) {
+        static std::string info;
+        info.clear();
+        std::ostringstream resourcesInfo;
+
+        // Arquivos abertos
+        std::string fdDir = "/proc/" + std::to_string(pid) + "/fd";
+        DIR* dir = opendir(fdDir.c_str());
+        if (dir) {
+            struct dirent* entry;
+            resourcesInfo << "Open Files:\n";
+            while ((entry = readdir(dir)) != NULL) {
+                if (entry->d_type == DT_LNK) {
+                    std::string fdPath = fdDir + "/" + entry->d_name;
+                    char linkPath[1024];
+                    ssize_t len = readlink(fdPath.c_str(), linkPath, sizeof(linkPath) - 1);
+                    if (len != -1) {
+                        linkPath[len] = '\0';
+                        resourcesInfo << "  " << entry->d_name << " -> " << linkPath << "\n";
+                    }
+                }
+            }
+            closedir(dir);
+        } else {
+            resourcesInfo << "Error opening fd directory\n";
+        }
+
+        // Adicione outras informações de recursos aqui (semaphores, sockets, etc.)
+
+        info = resourcesInfo.str();
+        return info.c_str();
+    }
 };
 
 extern "C" {
@@ -785,5 +885,17 @@ extern "C" {
 
     const char* getSpecificProcess(SystemInfo* systemInfo, int pid) {
         return systemInfo->getSpecificProcess(pid);
+    }
+
+    const char* getFileSystemInfo(SystemInfo* systemInfo) {
+        return systemInfo->getFileSystemInfo();
+    }
+
+    const char* listDirectory(SystemInfo* systemInfo, const char* path) {
+        return systemInfo->listDirectory(path);
+    }
+
+    const char* getProcessResources(SystemInfo* systemInfo, int pid) {
+        return systemInfo->getProcessResources(pid);
     }
 }

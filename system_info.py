@@ -103,3 +103,11 @@ class SystemInfo:
     def get_specific_process(self, pid):
         lib.getSpecificProcess.restype = c_char_p        
         return lib.getSpecificProcess(self.obj, c_int(int(pid))).decode('utf-8')
+    
+    def list_directory(self, path):
+        lib.listDirectory.restype = c_char_p
+        return lib.listDirectory(self.obj, c_char_p(path.encode('utf-8'))).decode('utf-8')
+    
+    def get_file_system_info(self):
+        lib.getFileSystemInfo.restype = c_char_p
+        return lib.getFileSystemInfo(self.obj).decode('utf-8')

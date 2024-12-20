@@ -10,6 +10,7 @@ import threading
 cycle_time = 1000  # milissegundos
 cycle_time_graphs = 500  # milissegundos
 cycle_time_processes = 1000  # milissegundos
+cycle_time_files = 1000  # milissegundos
 cycle_time_process_detail = 500  # milissegundos
 last_selected_process = None
 processes_thread = 5
@@ -58,13 +59,17 @@ class DashboardApp:
         self.setup_widgets()
 
         self.process_window = None
+        self.files_window = None
 
         self.initialize_cpu_core_histories()
         self.initialize_memory_histories()
         self.initialize_network_histories()
         self.initialize_disk_histories()
-        self.root.after(100, self.process_queue)
+        self.process_queue()
         
+        self.files_history = []
+        self.files_history_index = -1
+
     #funcoes de inicializacao de historicos dos graficos
     def initialize_cpu_core_histories(self):
         core_usages = self.sys_info.get_cpu_usage_per_core()
@@ -113,11 +118,15 @@ class DashboardApp:
 
         # botao para mostrar processos
         self.process_button = tk.Button(self.root, text="Show Processes", command=self.show_processes)
-        self.process_button.grid(row=1, column=0, pady=10, padx=10, sticky="ew")
+        self.process_button.grid(row=1, column=0, pady=5, padx=5, sticky="ew")
+
+        # botao para mostrar arquivos
+        self.files_button = tk.Button(self.root, text="Show Files", command=self.show_files)
+        self.files_button.grid(row=2, column=0, pady=5, padx=5, sticky="ew")
 
         # graficos de cpu e memoria
         self.cpu_memory_frame = tk.Frame(self.root)
-        self.cpu_memory_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
+        self.cpu_memory_frame.grid(row=0, column=1, rowspan=3, sticky="nsew", padx=10, pady=10)
         self.cpu_memory_frame.grid_rowconfigure(0, weight=1)
         self.cpu_memory_frame.grid_columnconfigure(0, weight=1)
 
@@ -190,7 +199,6 @@ class DashboardApp:
         # processa itens na fila de resultados
         while not self.result_queue.empty():
             item = self.result_queue.get()
-            print("item sendo atualizado na tela: " + item[0])
             if item[0] == 'update_processes':
                 # atualiza a lista de processos
                 self.update_processes()
@@ -244,6 +252,10 @@ class DashboardApp:
                 # atualiza a arvore de processos na interface
                 processes = item[1]
                 self.refresh_process_tree(processes)
+            elif item[0] == 'files_update':
+                # atualiza a arvore de arquivos na interface
+                files = item[1]
+                self.refresh_files_tree(files)                
         self.root.after(100, self.process_queue)
 
     # funcoes que submetem tarefas de coletar informacoes ao executor para 
@@ -799,6 +811,103 @@ class DashboardApp:
         update_process_info()
         process_detail_queue()
 
+    def show_files(self):
+        if self.files_window is not None and tk.Toplevel.winfo_exists(self.files_window):
+            self.files_window.deiconify()
+            return
+
+        self.files_window = tk.Toplevel(self.root)
+        self.files_window.title("Files Tree")
+        self.files_window.geometry("800x400")
+        self.files_window.resizable(True, True)
+
+        self.files_window.protocol("WM_DELETE_WINDOW", self.close_files_window)
+
+        # frame para os botoes de navegacao
+        nav_frame = tk.Frame(self.files_window)
+        nav_frame.pack(fill='x')
+
+        self.back_button = tk.Button(nav_frame, text="<-", command=self.go_back, state=tk.DISABLED)
+        self.back_button.pack(side=tk.LEFT)
+
+        self.forward_button = tk.Button(nav_frame, text="->", command=self.go_forward, state=tk.DISABLED)
+        self.forward_button.pack(side=tk.LEFT)
+
+        # frame para a arvore de arquivos
+        files_tree_frame = ttk.Frame(self.files_window)
+        files_tree_frame.pack(fill='both', expand=True)
+
+        self.fs_tree = ttk.Treeview(files_tree_frame)
+        self.fs_tree.pack(fill='both', expand=True)
+
+        scrollbar_tree = ttk.Scrollbar(files_tree_frame, orient="vertical", command=self.fs_tree.yview)
+        self.fs_tree.configure(yscrollcommand=scrollbar_tree.set)
+        scrollbar_tree.pack(side='right', fill='y')
+
+        self.fs_tree.bind("<<TreeviewOpen>>", self.on_treeview_open)
+
+        self.files_window_running = True
+        self.update_files()
+
+    def on_treeview_open(self, event):
+        item = self.fs_tree.focus()
+        path = self.fs_tree.item(item, "text")
+        self.navigate_to_directory(path)
+
+    def navigate_to_directory(self, path):
+        self.files_history = self.files_history[:self.files_history_index + 1]
+        self.files_history.append(path)
+        self.files_history_index += 1
+        self.update_navigation_buttons()
+        self.refresh_files_tree(path)
+
+    def go_back(self):
+        if self.files_history_index > 0:
+            self.files_history_index -= 1
+            self.update_navigation_buttons()
+            self.refresh_files_tree(self.files_history[self.files_history_index])
+
+    def go_forward(self):
+        if self.files_history_index < len(self.files_history) - 1:
+            self.files_history_index += 1
+            self.update_navigation_buttons()
+            self.refresh_files_tree(self.files_history[self.files_history_index])
+
+    def update_navigation_buttons(self):
+        self.back_button.config(state=tk.NORMAL if self.files_history_index > 0 else tk.DISABLED)
+        self.forward_button.config(state=tk.NORMAL if self.files_history_index < len(self.files_history) - 1 else tk.DISABLED)
+
+    def refresh_files_tree(self, path="/"):
+        for item in self.fs_tree.get_children():
+            self.fs_tree.delete(item)
+        self.populate_fs_tree(path, "")
+
+    def populate_fs_tree(self, path, parent):
+        try:
+            files_info = self.sys_info.list_directory(path)
+            for file in files_info:
+                abs_path = f"{path}/{file}"
+                item = self.fs_tree.insert(parent, "end", text=abs_path, open=False)
+                if self.sys_info.is_directory(abs_path):
+                    self.fs_tree.insert(item, "end")
+        except Exception as e:
+            print(f"Error populating file tree: {e}")
+
+    def close_files_window(self):
+        self.files_window_running = False
+        self.files_window.destroy()
+
+    def update_files(self):
+        if not self.files_window_running:
+            return
+
+        def worker():
+            files_info = self.sys_info.list_directory("/")
+            self.result_queue.put(('files_update', files_info))
+
+        if self.files_window_running:
+            threading.Thread(target=worker).start()
+            self.root.after(cycle_time_files, self.update_files)
 
     def stop(self):
         self.executor.shutdown(wait=False)
