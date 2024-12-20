@@ -14,9 +14,9 @@
 #include <unistd.h>
 
 // informacoes do sistema (API do SO) 
-#include <pwd.h>   // Para getpwuid() para manipulacao de usuarios
-#include <unistd.h> // Para getuid() para manipulacao de usuarios
-#include <dirent.h> //para manipulacao de diretorios
+#include <pwd.h>   // para getpwuid() para manipulacao de usuarios
+#include <unistd.h> // para getuid() para manipulacao de usuarios
+#include <dirent.h> // para manipulacao de diretorios
 #include <sys/sysinfo.h>
 #include <sys/statvfs.h>
 #include <sys/utsname.h>
@@ -37,8 +37,8 @@ public:
     const char* getTotalMemory() {
         static std::string info;
         info.clear();
-        struct sysinfo sys_info;
-        if (sysinfo(&sys_info) == 0) {
+        struct sysinfo sys_info; // sysinfo struct
+        if (sysinfo(&sys_info) == 0) { // obtem informacoes do sistema
             unsigned long long total_memory = sys_info.totalram * sys_info.mem_unit; 
             std::ostringstream memoryInfo;
             memoryInfo << total_memory / (1024 * 1024); // convertido para MB
@@ -51,8 +51,8 @@ public:
     const char* getFreeMemory() {
         static std::string info;
         info.clear();
-        struct sysinfo sys_info;
-        if (sysinfo(&sys_info) == 0) {
+        struct sysinfo sys_info; // sysinfo struct
+        if (sysinfo(&sys_info) == 0) { // obtem informacoes do sistema
             unsigned long long free_memory = sys_info.freeram * sys_info.mem_unit; 
             std::ostringstream memoryInfo;
             memoryInfo << free_memory / (1024 * 1024); // convertido para MB
@@ -65,8 +65,8 @@ public:
     const char* getUptime() {
         static std::string info;
         info.clear();
-        struct sysinfo sys_info;
-        if (sysinfo(&sys_info) == 0) {
+        struct sysinfo sys_info; // sysinfo struct
+        if (sysinfo(&sys_info) == 0) { // obtem informacoes do sistema
             long uptime_seconds = sys_info.uptime;
             long hours = uptime_seconds / 3600;
             long minutes = (uptime_seconds % 3600) / 60;
@@ -85,8 +85,8 @@ public:
     const char* getLoadAverage() {
         static std::string info;
         info.clear();
-        struct sysinfo sys_info;
-        if (sysinfo(&sys_info) == 0) {
+        struct sysinfo sys_info; // sysinfo struct
+        if (sysinfo(&sys_info) == 0) { // obtem informacoes do sistema
             std::ostringstream loadInfo;
             loadInfo << "Load Average: "
                     << "1 min: " << sys_info.loads[0] / 65536.0 << ", "
@@ -101,8 +101,8 @@ public:
     const char* getProcessCount() {
         static std::string info;
         info.clear();
-        struct sysinfo sys_info;
-        if (sysinfo(&sys_info) == 0) {
+        struct sysinfo sys_info; // sysinfo struct
+        if (sysinfo(&sys_info) == 0) { // obtem informacoes do sistema
             std::ostringstream procInfo;
             procInfo << sys_info.procs << " processes";
             info = procInfo.str();
@@ -141,7 +141,8 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter o percentual de tempo ocioso da cpu
+    // funcao para obter o percentual de tempo ocioso
+    // da cpu em /proc/stat
     const char* getCpuIdlePercentage() {
         static std::string info;
         info.clear();
@@ -150,7 +151,7 @@ public:
         std::string line;
         
         if (statFile.is_open()) {
-            std::getline(statFile, line);  // le a primeira linha com as estatísticas da cpu
+            std::getline(statFile, line);  // le a primeira linha com as estatisticas da cpu
             statFile.close();
 
             // analisa a linha
@@ -174,7 +175,7 @@ public:
     }
 
     // TODO: pendente
-    // funcao para obter o numero de threads
+    // funcao para obter o numero de threads em /proc/stat
     const char* getThreadCount() {
         static std::string info;
         info.clear();
@@ -201,8 +202,8 @@ public:
     const char* getUsedDisk() {
         static std::string info;
         info.clear();
-        struct statvfs stat;
-        if (statvfs("/", &stat) == 0) {
+        struct statvfs stat; // statvfs struct
+        if (statvfs("/", &stat) == 0) { // obtem informacoes do sistema
             // total de blocos e o tamanho de cada bloco
             unsigned long total = stat.f_blocks * stat.f_frsize;
             unsigned long free = stat.f_bfree * stat.f_frsize;
@@ -221,8 +222,8 @@ public:
     const char* getFreeDisk() { 
         static std::string info;
         info.clear();
-        struct statvfs stat;
-        if (statvfs("/", &stat) == 0) {
+        struct statvfs stat; // statvfs struct
+        if (statvfs("/", &stat) == 0) { // obtem informacoes do sistema
             // total de blocos e o tamanho de cada bloco
             unsigned long total = stat.f_blocks * stat.f_frsize;
             unsigned long free = stat.f_bfree * stat.f_frsize;
@@ -240,7 +241,7 @@ public:
     }
 
     // TODO: pendente 
-    // funcao para obter o uso do disco em leitura
+    // funcao para obter o uso do disco em leitura em /proc/diskstats
     const char* getDiskRead() {
         static std::string info;
         info.clear();
@@ -285,8 +286,7 @@ public:
         return info.c_str();
     }
 
-    //  TODO: pendente 
-    // funcao para obter o uso do disco em escrita
+    // funcao para obter o uso do disco em escrita em /proc/diskstats
     const char* getDiskWrite() {
         static std::string info;
         info.clear();
@@ -331,7 +331,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a temperatura da cpu
+    // funcao para obter a temperatura da cpu em /sys/class/thermal/thermal_zone0/temp
     const char* getCpuTemperature() {
         static std::string info;
         info.clear();
@@ -352,7 +352,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a taxa de recebimento de rede
+    // funcao para obter a taxa de recebimento de rede em /proc/net/dev
     const char* getNetworkReceiveRate() {
         static std::string info;
         info.clear();
@@ -396,7 +396,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter a taxa de transmissao de rede
+    // funcao para obter a taxa de transmissao de rede em /proc/net/dev
     const char* getNetworkTransmitRate() {
         static std::string info;
         info.clear();
@@ -448,8 +448,8 @@ public:
         static std::string info;
         info.clear();
 
-        struct sysinfo sys_info;
-        if (sysinfo(&sys_info) == 0) {
+        struct sysinfo sys_info; // sysinfo struct
+        if (sysinfo(&sys_info) == 0) { // obtem informacoes do sistema
             double totalSwap = sys_info.totalswap / (1024.0 * 1024.0);  // convertendo para MB
             double freeSwap = sys_info.freeswap / (1024.0 * 1024.0);    // convertendo para MB
             double usedSwap = totalSwap - freeSwap;
@@ -467,8 +467,8 @@ public:
     const char* getOsInfo() {
         static std::string info;
         info.clear();
-        struct utsname buffer;
-        if (uname(&buffer) == 0) {
+        struct utsname buffer; // utsname struct
+        if (uname(&buffer) == 0) { // obtem informacoes do sistema
             std::ostringstream osInfo;
             osInfo << "OS: " << buffer.sysname << ", Release: " << buffer.release << ", Version: " << buffer.version;
             info = osInfo.str();
@@ -481,7 +481,7 @@ public:
         static std::string info;
         info.clear();
         struct utsname buffer;
-        if (uname(&buffer) == 0) {
+        if (uname(&buffer) == 0) { // obtem informacoes do sistema
             std::ostringstream archInfo;
             archInfo << "Architecture: " << buffer.machine;
             info = archInfo.str();
@@ -489,7 +489,7 @@ public:
         return info.c_str();
     }
 
-    // funcao para obter uso de cada core da cpu
+    // funcao para obter uso de cada core da cpu em /proc/cpuinfo
     const char* getCpuInfo() {
         static std::string info;
         info.clear();
@@ -519,7 +519,8 @@ public:
         return output;
     }
 
-    // funcao para obter informacoes detalhadas dos processos
+    // funcao para obter informacoes detalhadas dos processos 
+    // em /proc e /proc/[pid]/status
     const char* getProcessesInfo() {
         static std::string info;
 
@@ -528,11 +529,11 @@ public:
 
         DIR* dir = opendir("/proc");
         if (!dir) {
-            perror("Nao foi possível abrir /proc");
+            perror("Nao foi possivel abrir /proc");
             return "";
         }
 
-        struct dirent* entry;
+        struct dirent* entry; // estrutura para armazenar informacoes sobre um diretorio
         while ((entry = readdir(dir)) != NULL) {
             if (entry->d_type == DT_DIR) {
                 int pid = atoi(entry->d_name);
@@ -548,7 +549,7 @@ public:
                         std::string threads = "0"; // inicializa threads com "0"
                         std::string state;
                         unsigned long vsize = 0;   // memoria virtual
-                        long rss = 0;              // memoria física
+                        long rss = 0;              // memoria fisica
                         std::string userName;
 
                         while (std::getline(statusFile, line)) {
@@ -598,7 +599,7 @@ public:
     }
 
     const int killProcess(int pid) {
-        int result = syscall(SYS_kill, pid, SIGKILL);
+        int result = syscall(SYS_kill, pid, SIGKILL); // envia sinal de kill para o processo
         if (result == -1) {
             perror("killProcess failed");
             return -1;
@@ -607,6 +608,7 @@ public:
     }
 
     // funcao para obter informacoes especificas de um processo
+    // em /proc/[pid]/status, /proc/[pid]/statm, /proc/[pid]/task/[tid]/status
     const char* getSpecificProcess(int pid) {
         static std::string info;
         info.clear();

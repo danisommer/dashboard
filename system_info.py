@@ -1,4 +1,3 @@
-import os
 from ctypes import cdll, c_char_p, c_int, c_void_p
 
 # carrega a biblioteca c++
@@ -77,7 +76,7 @@ class SystemInfo:
     
     def get_processes_info(self):
         lib.getProcessesInfo.restype = c_char_p
-        return lib.getProcessesInfo(self.obj).decode('utf-8')
+        return lib.getProcessesInfo(self.obj).decode('utf-8', errors='ignore')
     
     def get_used_disk(self):
         lib.getUsedDisk.restype = c_char_p

@@ -40,6 +40,17 @@ class DashboardApp:
 
         self.label_vars = {}
         self.labels = {}
+
+        # Global Interpreter Lock eh um mutex que impede
+        # que multiplas threads executem bytecodes Python ao mesmo tempo
+
+        # as funcoes que obtem informacoes do sistema sao executadas
+        # em threads separadas. Essas operacoes, permitem que outras 
+        # threads executem enquanto uma thread esta aguardando uma
+        # operacao coleta de dados
+
+        # inicializacao do thread pool executor 
+        # com threads para N campos + thread para processos 
         self.executor = ThreadPoolExecutor(max_workers=len(self.sys_info.fields) + processes_thread)
 
         self.result_queue = queue.Queue()
@@ -153,23 +164,33 @@ class DashboardApp:
 
         self.cpu_ax.legend()
 
-        # agendar atualizacoes dos graficos
+        # agenda as atualizacoes dos graficos
         self.root.after(cycle_time, self.update_cpu_graph)
         self.root.after(cycle_time, self.update_memory_graph)
         self.root.after(cycle_time, self.update_network_graph)
         self.root.after(cycle_time, self.update_disk_graph)
         
+
+    # para cada campo uma tarefa eh submetida 
+    # ao executor para obter informacoes do sistema periodicamente
     def update_field(self, field):
         def worker():
-            value = self.sys_info.get_info(field)
-            self.result_queue.put(('field', field, value))
-        self.executor.submit(worker)
+            value = self.sys_info.get_info(field) # coleta de dados 
+            self.result_queue.put(('field', field, value)) # coloca o resultado na fila
+        self.executor.submit(worker) # submete a tarefa ao executor
         self.root.after(cycle_time, self.update_field, field)
 
+    # a funcao process_queue eh chamada periodicamente para processar itens na 
+    # fila de resultados (result_queue)
+    # - comunicacao segura entre threads de trabalho e a thread principal
+    # - atualizacao eficiente da interface grafica sem bloquear a thread principal
+    # - sincronizacao das operacoes realizadas pelas threads de trabalho com a
+    #   thread principal
     def process_queue(self):
         # processa itens na fila de resultados
         while not self.result_queue.empty():
             item = self.result_queue.get()
+            print("item sendo atualizado na tela: " + item[0])
             if item[0] == 'update_processes':
                 # atualiza a lista de processos
                 self.update_processes()
@@ -224,12 +245,14 @@ class DashboardApp:
                 processes = item[1]
                 self.refresh_process_tree(processes)
         self.root.after(100, self.process_queue)
-    # funcoes de atualizacao e refresh do grafico de cpu
+
+    # funcoes que submetem tarefas de coletar informacoes ao executor para 
+    # obter dados e coloca-los na fila de resultados.
     def update_cpu_graph(self):
         def worker():
-            core_usages = self.sys_info.get_cpu_usage_per_core()
-            self.result_queue.put(('cpu', core_usages))
-        self.executor.submit(worker)
+            core_usages = self.sys_info.get_cpu_usage_per_core()  # coleta de dados 
+            self.result_queue.put(('cpu', core_usages))  # coloca o resultado na fila
+        self.executor.submit(worker) # submete a tarefa ao executor
         self.root.after(cycle_time_graphs, self.update_cpu_graph)
     def refresh_cpu_graph(self):
         xdata = range(len(self.cpu_core_usage_histories[0]))
@@ -241,14 +264,14 @@ class DashboardApp:
         self.cpu_ax.set_xlim(0, self.max_history_length)
         self.cpu_ax.set_ylim(0, max(max(core_data) for core_data in self.cpu_core_usage_histories) * 1.1)
         self.canvas.draw_idle()
-
+ 
     # funcoes de atualizacao e refresh dos graficos de memoria
     def update_memory_graph(self):
         def worker():
-            mem_usage = self.sys_info.get_memory_usage()
-            swap_usage = self.sys_info.get_swap_usage()
-            self.result_queue.put(('memory', mem_usage, swap_usage))
-        self.executor.submit(worker)
+            mem_usage = self.sys_info.get_memory_usage() # coleta de dados
+            swap_usage = self.sys_info.get_swap_usage() # coleta de dados
+            self.result_queue.put(('memory', mem_usage, swap_usage)) # coloca o resultado na fila
+        self.executor.submit(worker) # submete a tarefa ao executor
         self.root.after(cycle_time_graphs, self.update_memory_graph)
     def refresh_memory_graph(self):
         xdata = range(len(self.mem_usage_history))
@@ -256,14 +279,14 @@ class DashboardApp:
         self.swap_line.set_data(xdata, self.swap_usage_history)
         self.mem_ax.set_xlim(0, self.max_history_length)
         self.canvas.draw_idle()
-
+ 
     # funcoes de atualizacao e refresh dos graficos de rede
     def update_network_graph(self):
         def worker():
-            receive_rate = self.sys_info.get_network_receive_rate()
-            transmit_rate = self.sys_info.get_network_transmit_rate()
-            self.result_queue.put(('network', receive_rate, transmit_rate))
-        self.executor.submit(worker)
+            receive_rate = self.sys_info.get_network_receive_rate() # coleta de dados
+            transmit_rate = self.sys_info.get_network_transmit_rate() # coleta de dados
+            self.result_queue.put(('network', receive_rate, transmit_rate)) # coloca o resultado na fila
+        self.executor.submit(worker) # submete a tarefa ao executor
         self.root.after(cycle_time_graphs, self.update_network_graph)
     def refresh_network_graph(self):
         xdata = range(len(self.network_receive_history))
@@ -275,14 +298,14 @@ class DashboardApp:
             max_rate = 1  # definir um limite minimo para y
         self.net_ax.set_ylim(0, max_rate)
         self.canvas.draw_idle()
-
+ 
     # funcoes de atualizacao e refresh do grafico de disco
     def update_disk_graph(self):
         def worker():
-            disk_read = self.sys_info.get_disk_read()
-            disk_write = self.sys_info.get_disk_write()
-            self.result_queue.put(('disk', disk_read, disk_write))
-        self.executor.submit(worker)
+            disk_read = self.sys_info.get_disk_read() # coleta de dados
+            disk_write = self.sys_info.get_disk_write() # coleta de dados
+            self.result_queue.put(('disk', disk_read, disk_write)) # coloca o resultado na fila
+        self.executor.submit(worker) # submete a tarefa ao executor
         self.root.after(cycle_time_graphs, self.update_disk_graph)
     def refresh_disk_graph(self):
         xdata = range(len(self.disk_read_history))
@@ -307,6 +330,8 @@ class DashboardApp:
         self.process_window.title("Process Tree")
         self.process_window.geometry("800x400")
         self.process_window.resizable(True, True)
+
+        self.process_window.protocol("WM_DELETE_WINDOW", self.close_process_window)
 
         # tab 1: arvore de processos
         process_tree_frame = ttk.Frame(self.process_window)
@@ -468,14 +493,20 @@ class DashboardApp:
         self.process_window_running = False
         self.process_window.destroy()
 
+    # cria uma nova thread para obter informacoes dos processos 
+    # e coloca os resultados na fila de resultados.
     def update_processes(self):
+        if not self.process_window_running:
+            return
+
         def worker():
-            processes_info = self.sys_info.get_processes_info()
-            self.result_queue.put(('processes_update', processes_info))
+            processes_info = self.sys_info.get_processes_info() # coleta de dados
+            self.result_queue.put(('processes_update', processes_info)) # coloca o resultado na fila
 
         if self.process_window_running:
             threading.Thread(target=worker).start()
-            self.root.after(cycle_time_processes, self.update_processes) 
+            self.root.after(cycle_time_processes, self.update_processes)
+
 
     def refresh_process_tree(self, processes):
         if not hasattr(self, 'process_treeview') or not self.process_treeview.winfo_exists():
@@ -729,18 +760,20 @@ class DashboardApp:
                             content = section.split('\n', 1)[1]
                             format_section(treeview, content, name)
 
-        # funcao para obter as informacoes detalhadas do processo
+        # quando detalhes de um processo especifico sao solicitados,
+        # uma tarefa eh submetida ao executor para obter essas informacoes
+        # e coloca-las na fila de resultados
         def update_process_info():
             def worker():
                 try:
                     # obtem as informacoes detalhadas do processo
-                    process_info = self.sys_info.get_specific_process(pid)
-                    self.result_queue.put(('process_detail', process_info))
+                    process_info = self.sys_info.get_specific_process(pid) # coleta de dados
+                    self.result_queue.put(('process_detail', process_info)) # coloca o resultado na fila
                 except Exception as e:
                     self.result_queue.put(('error', str(e)))
 
             # envia a tarefa para ser executada em uma thread separada
-            self.executor.submit(worker)
+            self.executor.submit(worker) # submete a tarefa ao executor
 
         # funcao para processar os dados da fila e atualizar a interface
         def process_detail_queue():
